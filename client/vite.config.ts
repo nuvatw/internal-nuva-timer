@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   build: {
+    outDir: '../_site',
     emptyOutDir: true,
     rollupOptions: {
       output: {

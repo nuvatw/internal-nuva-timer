@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Check, X } from "lucide-react";
+import { overlayVariants, modalVariants, modalTransition } from "../lib/motion";
 
 interface CompletionModalProps {
   plannedTitle: string;
@@ -26,7 +29,6 @@ export default function CompletionModal({
     firstInputRef.current?.focus();
   }, []);
 
-  // Trap focus within the modal
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -79,43 +81,53 @@ export default function CompletionModal({
   };
 
   return (
-    <div
+    <motion.div
       ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="completion-title"
+      variants={overlayVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={modalTransition}
     >
-      <form
+      <motion.form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg space-y-5"
+        className="w-full max-w-md rounded-xl bg-bg p-6 shadow-lg space-y-5"
+        variants={modalVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={modalTransition}
       >
-        <h3 id="completion-title" className="text-lg font-semibold text-gray-900">
+        <h3 id="completion-title" className="text-lg font-semibold text-text-primary">
           Session Complete
         </h3>
 
-        <div className="rounded-lg bg-gray-50 px-3 py-2">
-          <p className="text-xs text-gray-500">Planned</p>
-          <p className="text-sm text-gray-800 font-medium">
+        <div className="rounded-lg bg-surface px-3 py-2.5">
+          <p className="text-xs text-text-tertiary">Planned</p>
+          <p className="text-sm text-text-primary font-medium mt-0.5">
             &ldquo;{plannedTitle}&rdquo;
           </p>
         </div>
 
         {/* Yes / No radio */}
         <fieldset>
-          <legend className="text-sm font-medium text-gray-700 mb-2">
+          <legend className="text-sm font-medium text-text-secondary mb-2">
             Did you complete the goal?
           </legend>
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             {([true, false] as const).map((val) => (
               <label
                 key={String(val)}
                 className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors ${
                   completed === val
                     ? val
-                      ? "border-green-500 bg-green-50 text-green-700"
-                      : "border-red-400 bg-red-50 text-red-700"
-                    : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
+                      ? "border-success bg-success-muted text-success"
+                      : "border-destructive bg-destructive-muted text-destructive"
+                    : "border-border bg-bg text-text-secondary hover:bg-surface"
                 }`}
               >
                 <input
@@ -129,20 +141,30 @@ export default function CompletionModal({
                   }}
                   className="sr-only"
                 />
-                {val ? "Yes" : "No"}
+                {val ? (
+                  <><Check size={14} strokeWidth={2} /> Yes</>
+                ) : (
+                  <><X size={14} strokeWidth={2} /> No</>
+                )}
               </label>
             ))}
           </div>
         </fieldset>
 
         {/* Actual title (required when No) */}
+        <AnimatePresence>
         {!completed && (
-          <div>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+          >
             <label
               htmlFor="actual-title"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-text-secondary mb-1"
             >
-              What I actually did <span className="text-red-500">*</span>
+              What I actually did <span className="text-destructive">*</span>
             </label>
             <textarea
               id="actual-title"
@@ -155,18 +177,19 @@ export default function CompletionModal({
               maxLength={200}
               rows={2}
               autoFocus
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none resize-none"
+              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none resize-none"
             />
-          </div>
+          </motion.div>
         )}
+        </AnimatePresence>
 
         {/* Notes (always optional) */}
         <div>
           <label
             htmlFor="notes"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-text-secondary mb-1"
           >
-            Notes <span className="text-gray-400">(optional)</span>
+            Notes <span className="text-text-tertiary">(optional)</span>
           </label>
           <textarea
             id="notes"
@@ -174,20 +197,20 @@ export default function CompletionModal({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Any additional notes..."
             rows={2}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none resize-none"
+            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none resize-none"
           />
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
 
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
         >
           {saving ? "Saving..." : "Save Session"}
         </button>
-      </form>
-    </div>
+      </motion.form>
+    </motion.div>
   );
 }

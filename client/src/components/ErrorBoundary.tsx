@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlertTriangle } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -30,25 +31,23 @@ export default class ErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="min-h-screen flex items-center justify-center bg-surface px-4" role="alert">
           <div className="w-full max-w-sm text-center space-y-4">
-            <p className="text-4xl" aria-hidden="true">
-              &#9888;&#65039;
-            </p>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <AlertTriangle size={40} strokeWidth={1.5} className="text-warning mx-auto" aria-hidden="true" />
+            <h1 className="text-lg font-semibold text-text-primary">
               Something went wrong
             </h1>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-text-secondary">
               An unexpected error occurred. Please try again.
             </p>
             {this.state.error && (
-              <p className="text-xs text-gray-400 font-mono break-all">
+              <p className="text-xs text-text-tertiary font-mono break-all">
                 {this.state.error.message}
               </p>
             )}
             <button
               onClick={this.handleRetry}
-              className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+              className="rounded-lg bg-accent px-6 py-2.5 text-sm font-medium text-text-inverted hover:bg-accent-hover transition-colors"
             >
               Try Again
             </button>

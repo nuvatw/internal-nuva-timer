@@ -100,11 +100,22 @@ async function download(path: string): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+async function del(path: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}${path}`, { method: "DELETE", headers });
+  if (res.status === 401) handle401();
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error?.message || `Delete failed: ${res.status}`);
+  }
+}
+
 export const api = {
   get: <T>(path: string) => request<T>(path),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PATCH", body: JSON.stringify(body) }),
+  delete: del,
   download,
 };

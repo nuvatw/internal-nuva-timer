@@ -32,7 +32,7 @@ export default function WeekSelector({ weekFrom, weekTo, onChange }: WeekSelecto
             const val = Number(e.target.value);
             onChange(val, Math.max(val, weekTo));
           }}
-          className="flex-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+          className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text-secondary focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none"
           aria-label="Start week"
         >
           {weeks.map((w) => (
@@ -42,7 +42,7 @@ export default function WeekSelector({ weekFrom, weekTo, onChange }: WeekSelecto
           ))}
         </select>
 
-        <span className="text-xs text-gray-400">to</span>
+        <span className="text-xs text-text-tertiary">to</span>
 
         <select
           value={weekTo}
@@ -50,7 +50,7 @@ export default function WeekSelector({ weekFrom, weekTo, onChange }: WeekSelecto
             const val = Number(e.target.value);
             onChange(Math.min(weekFrom, val), val);
           }}
-          className="flex-1 rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
+          className="flex-1 rounded-lg border border-border bg-bg px-2.5 py-1.5 text-sm text-text-secondary focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none"
           aria-label="End week"
         >
           {weeks
@@ -64,7 +64,7 @@ export default function WeekSelector({ weekFrom, weekTo, onChange }: WeekSelecto
       </div>
 
       {isRange && (
-        <p className="text-xs text-gray-500 text-center">
+        <p className="text-xs text-text-tertiary text-center">
           Week {weekFrom} – Week {weekTo}
         </p>
       )}

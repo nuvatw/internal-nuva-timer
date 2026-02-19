@@ -1,0 +1,17 @@
+{
+  "name": "nuva Focus Timer",
+  "short_name": "nuva",
+  "description": "Track your deep work sessions with nuva Focus Timer.",
+  "start_url": "/timer",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

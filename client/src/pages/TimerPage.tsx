@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, Pause, X, AlertTriangle, Clock } from "lucide-react";
+import { useHotkeys } from "../hooks/useHotkeys";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
+import { toast } from "../contexts/ToastContext";
 import { api } from "../lib/api";
 import { useTimer, type StartParams } from "../hooks/useTimer";
 import { useAlarm } from "../hooks/useAlarm";
 import { useMultiTab } from "../hooks/useMultiTab";
 import AlarmOverlay from "../components/AlarmOverlay";
 import CompletionModal from "../components/CompletionModal";
+import CircularProgress from "../components/CircularProgress";
+import { overlayVariants, modalVariants, modalTransition, tapScale } from "../lib/motion";
 
 // ─── Types ─────────────────────────────────
 
@@ -87,102 +94,120 @@ function IdleState({ onStart }: { onStart: (p: StartParams) => Promise<void> }) 
   };
 
   return (
-    <form onSubmit={handleStart} className="p-6 space-y-5">
-      {/* Department */}
-      <div>
-        <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-1">
-          Department
-        </label>
-        <select
-          id="department"
-          value={departmentId}
-          onChange={(e) => setDepartmentId(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
-        >
-          {departments.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Project */}
-      <div>
-        <label htmlFor="project" className="block text-sm font-medium text-gray-700 mb-1">
-          Project
-        </label>
-        <select
-          id="project"
-          value={projectId}
-          onChange={(e) => setProjectId(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
-        >
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.code ? `${p.code} — ` : ""}{p.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Duration */}
-      <fieldset>
-        <legend className="block text-sm font-medium text-gray-700 mb-2">
-          Duration
-        </legend>
-        <div className="flex gap-4">
-          {([30, 60] as const).map((min) => (
-            <label
-              key={min}
-              className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium cursor-pointer transition-colors ${
-                duration === min
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              <input
-                type="radio"
-                name="duration"
-                value={min}
-                checked={duration === min}
-                onChange={() => setDuration(min)}
-                className="sr-only"
-              />
-              {min} min
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      {/* Planned Goal */}
-      <div>
-        <label htmlFor="planned-title" className="block text-sm font-medium text-gray-700 mb-1">
-          Planned Goal
-        </label>
-        <input
-          id="planned-title"
-          type="text"
-          required
-          value={plannedTitle}
-          onChange={(e) => setPlannedTitle(e.target.value)}
-          placeholder="What will you focus on?"
-          maxLength={200}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none"
-        />
-      </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      {/* Start */}
-      <button
-        type="submit"
-        disabled={starting || !departmentId || !projectId || !plannedTitle.trim()}
-        className="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+    <div className="flex items-center justify-center min-h-[calc(100vh-2rem)] p-4 lg:p-8">
+      <motion.form
+        onSubmit={handleStart}
+        className="w-full max-w-md space-y-6"
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       >
-        {starting ? "Starting..." : "Start Timer"}
-      </button>
-    </form>
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-accent-muted flex items-center justify-center text-accent">
+            <Clock size={20} strokeWidth={1.75} />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-text-primary">New Session</h2>
+            <p className="text-xs text-text-tertiary">Set up your focus block</p>
+          </div>
+        </div>
+
+        {/* Department + Project row */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="department" className="block text-xs font-medium text-text-tertiary uppercase tracking-wider mb-1.5">
+              Department
+            </label>
+            <select
+              id="department"
+              value={departmentId}
+              onChange={(e) => setDepartmentId(e.target.value)}
+              className="w-full rounded-lg border border-border px-3 py-2.5 text-sm bg-bg focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none"
+            >
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="project" className="block text-xs font-medium text-text-tertiary uppercase tracking-wider mb-1.5">
+              Project
+            </label>
+            <select
+              id="project"
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="w-full rounded-lg border border-border px-3 py-2.5 text-sm bg-bg focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none"
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code ? `${p.code} — ` : ""}{p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Duration */}
+        <div>
+          <label className="block text-xs font-medium text-text-tertiary uppercase tracking-wider mb-2">
+            Duration
+          </label>
+          <div className="flex gap-3">
+            {([30, 60] as const).map((min) => (
+              <label
+                key={min}
+                className={`flex-1 flex items-center justify-center rounded-lg border px-4 py-3 text-sm font-medium cursor-pointer transition-colors ${
+                  duration === min
+                    ? "border-accent bg-accent-muted text-accent"
+                    : "border-border bg-bg text-text-secondary hover:bg-surface"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="duration"
+                  value={min}
+                  checked={duration === min}
+                  onChange={() => setDuration(min)}
+                  className="sr-only"
+                />
+                {min} min
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Planned Goal */}
+        <div>
+          <label htmlFor="planned-title" className="block text-xs font-medium text-text-tertiary uppercase tracking-wider mb-1.5">
+            Goal
+          </label>
+          <input
+            id="planned-title"
+            type="text"
+            required
+            value={plannedTitle}
+            onChange={(e) => setPlannedTitle(e.target.value)}
+            placeholder="What will you focus on?"
+            maxLength={200}
+            className="w-full rounded-lg border border-border px-3 py-3 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none"
+          />
+        </div>
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <motion.button
+          type="submit"
+          disabled={starting || !departmentId || !projectId || !plannedTitle.trim()}
+          className="inline-flex items-center justify-center gap-2 w-full rounded-lg bg-accent px-4 py-3.5 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          whileTap={tapScale}
+        >
+          <Play size={16} strokeWidth={2.5} />
+          {starting ? "Starting..." : "Start Focus"}
+        </motion.button>
+      </motion.form>
+    </div>
   );
 }
 
@@ -220,18 +245,30 @@ function CancelModal({
   };
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="cancel-title"
       aria-describedby="cancel-desc"
+      variants={overlayVariants}
+      initial="initial"
+      animate="animate"
+      exit="exit"
+      transition={modalTransition}
     >
-      <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg space-y-4">
-        <h3 id="cancel-title" className="text-lg font-semibold text-gray-900">
+      <motion.div
+        className="w-full max-w-sm rounded-xl bg-bg p-6 shadow-lg space-y-4"
+        variants={modalVariants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={modalTransition}
+      >
+        <h3 id="cancel-title" className="text-lg font-semibold text-text-primary">
           Cancel session?
         </h3>
-        <p id="cancel-desc" className="text-sm text-gray-500">
+        <p id="cancel-desc" className="text-sm text-text-secondary">
           Elapsed time will be saved as a canceled session.
         </p>
         <div className="flex gap-3 justify-end">
@@ -239,20 +276,20 @@ function CancelModal({
             ref={dismissRef}
             onClick={onDismiss}
             disabled={canceling}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface transition-colors"
           >
             Go Back
           </button>
           <button
             onClick={handleConfirm}
             disabled={canceling}
-            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+            className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {canceling ? "Canceling..." : "Yes, Cancel"}
           </button>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -305,54 +342,65 @@ function RunningState({
     setActionLoading(false);
   }, [onResume]);
 
+  // Space to toggle pause/resume
+  useHotkeys(
+    "space",
+    useCallback(() => {
+      if (actionLoading) return;
+      if (isPaused) handleResume();
+      else handlePause();
+    }, [isPaused, actionLoading, handlePause, handleResume]),
+    { preventDefault: true }
+  );
+
   return (
-    <div className="p-6 flex flex-col items-center gap-6">
-      {/* Session info */}
-      <div className="text-center">
-        <p className="text-sm text-gray-500">
-          {departmentName} &rsaquo; {projectCode ?? projectName}
+    <motion.div
+      className="flex flex-col items-center justify-center min-h-[calc(100vh-2rem)] p-4 lg:p-8 gap-8"
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {/* Session context */}
+      <div className="text-center space-y-1">
+        <p className="text-xs font-medium text-text-tertiary uppercase tracking-wider">
+          {departmentName} &middot; {projectCode ?? projectName}
         </p>
-        <p className="mt-1 text-sm text-gray-700 italic">
-          &ldquo;{plannedTitle}&rdquo;
+        <p className="text-sm text-text-secondary max-w-xs">
+          {plannedTitle}
         </p>
       </div>
 
-      {/* Countdown */}
-      <div
-        className="text-center"
-        role="timer"
-        aria-live="polite"
-        aria-label={`${formatTime(remainingSeconds)} remaining`}
-      >
-        <span
-          className={`text-6xl font-mono font-bold tabular-nums tracking-tight transition-colors ${
-            isPaused ? "text-amber-600" : "text-gray-900"
-          }`}
+      {/* Circular timer */}
+      <CircularProgress progress={progress} paused={isPaused}>
+        <div
+          role="timer"
+          aria-live="polite"
+          aria-label={`${formatTime(remainingSeconds)} remaining`}
+          className="text-center"
         >
-          {formatTime(remainingSeconds)}
-        </span>
-        {isPaused && (
-          <p className="mt-2 text-sm font-medium text-amber-600 animate-pulse">
-            Paused
-          </p>
-        )}
-      </div>
-
-      {/* Progress bar */}
-      <div className="w-full max-w-xs">
-        <div className="h-2 rounded-full bg-gray-200 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all duration-1000 ease-linear ${
-              isPaused ? "bg-amber-400" : "bg-indigo-500"
+          <span
+            className={`text-6xl font-mono font-bold tabular-nums tracking-tighter transition-colors duration-300 ${
+              isPaused ? "text-warning" : "text-text-primary"
             }`}
-            style={{ width: `${Math.min(progress * 100, 100)}%` }}
-          />
+          >
+            {formatTime(remainingSeconds)}
+          </span>
+          {isPaused ? (
+            <p className="mt-1 text-xs font-medium text-warning animate-pulse">
+              PAUSED
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-text-tertiary">
+              {formatElapsed(elapsedSeconds)} elapsed
+            </p>
+          )}
         </div>
-        <div className="mt-1 flex justify-between text-xs text-gray-400">
-          <span>{durationMinutes} min session</span>
-          <span>Elapsed: {formatElapsed(elapsedSeconds)}</span>
-        </div>
-      </div>
+      </CircularProgress>
+
+      {/* Session duration label */}
+      <p className="text-xs text-text-tertiary">
+        {durationMinutes} min session
+      </p>
 
       {/* Controls */}
       <div className="flex gap-3">
@@ -360,36 +408,40 @@ function RunningState({
           <button
             onClick={handlePause}
             disabled={actionLoading}
-            className="rounded-lg border border-gray-300 bg-white px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg px-6 py-2.5 text-sm font-medium text-text-secondary hover:bg-surface-raised disabled:opacity-50 transition-colors"
           >
-            {actionLoading ? "Pausing..." : "Pause"}
+            <Pause size={16} strokeWidth={2} />
+            {actionLoading ? "..." : "Pause"}
           </button>
         ) : (
           <button
             onClick={handleResume}
             disabled={actionLoading}
-            className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-2.5 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
           >
-            {actionLoading ? "Resuming..." : "Resume"}
+            <Play size={16} strokeWidth={2} />
+            {actionLoading ? "..." : "Resume"}
           </button>
         )}
         <button
           onClick={() => setShowCancelConfirm(true)}
           disabled={actionLoading}
-          className="rounded-lg border border-red-200 bg-red-50 px-6 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg border border-border bg-bg px-6 py-2.5 text-sm font-medium text-text-tertiary hover:text-destructive hover:border-destructive hover:bg-destructive-muted disabled:opacity-50 transition-colors"
         >
+          <X size={16} strokeWidth={2} />
           Cancel
         </button>
       </div>
 
-      {/* Cancel confirmation */}
-      {showCancelConfirm && (
-        <CancelModal
-          onConfirm={onCancel}
-          onDismiss={() => setShowCancelConfirm(false)}
-        />
-      )}
-    </div>
+      <AnimatePresence>
+        {showCancelConfirm && (
+          <CancelModal
+            onConfirm={onCancel}
+            onDismiss={() => setShowCancelConfirm(false)}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 
@@ -412,10 +464,16 @@ export default function TimerPage() {
   } = useTimer();
 
   const alarm = useAlarm();
-  const { otherTabActive } = useMultiTab(status === "running" || status === "paused");
+  const { otherTabActive, notifyStateChanged } = useMultiTab(status === "running" || status === "paused");
   const [finishedPhase, setFinishedPhase] = useState<FinishedPhase | null>(null);
 
-  // When status transitions to "finished", trigger alarm
+  // Dynamic document title
+  useDocumentTitle(
+    status === "running" || status === "paused"
+      ? `${formatTime(remainingSeconds)} ${status === "paused" ? "(Paused)" : ""} — Timer`
+      : "Timer"
+  );
+
   const prevStatusRef = useRef(status);
   useEffect(() => {
     if (status === "finished" && prevStatusRef.current !== "finished") {
@@ -425,7 +483,6 @@ export default function TimerPage() {
     prevStatusRef.current = status;
   }, [status, alarm]);
 
-  // Also check on mount — if we reload and timer is already finished
   useEffect(() => {
     if (status === "finished" && finishedPhase === null) {
       setFinishedPhase("alarm");
@@ -434,13 +491,13 @@ export default function TimerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Wrap start to also prepare audio
   const handleStart = useCallback(
     async (params: StartParams) => {
       alarm.prepare();
       await start(params);
+      notifyStateChanged();
     },
-    [alarm, start]
+    [alarm, start, notifyStateChanged]
   );
 
   const handleStopAlarm = useCallback(() => {
@@ -458,13 +515,13 @@ export default function TimerPage() {
         notes: data.notes,
       });
 
+      toast.success(data.completed ? "Session completed" : "Session saved");
       setFinishedPhase(null);
       reset();
+      notifyStateChanged();
     },
-    [timerState, reset]
+    [timerState, reset, notifyStateChanged]
   );
-
-  // ─── Render states ─────────────────────────
 
   // Alarm overlay
   if (status === "finished" && finishedPhase === "alarm" && timerState) {
@@ -483,9 +540,15 @@ export default function TimerPage() {
   if (status === "finished" && finishedPhase === "completion" && timerState) {
     return (
       <>
-        <div className="p-6 flex flex-col items-center gap-4">
-          <p className="text-sm text-gray-500">Session ended</p>
-          <span className="text-4xl font-mono font-bold text-gray-300">00:00</span>
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-2rem)] p-4 lg:p-8">
+          <CircularProgress progress={1} paused={false}>
+            <div className="text-center">
+              <span className="text-6xl font-mono font-bold tabular-nums tracking-tighter text-text-tertiary/30">
+                00:00
+              </span>
+              <p className="mt-1 text-xs text-text-tertiary">Complete</p>
+            </div>
+          </CircularProgress>
         </div>
         <CompletionModal
           plannedTitle={timerState.plannedTitle}
@@ -510,7 +573,7 @@ export default function TimerPage() {
         durationMinutes={timerState!.durationMinutes}
         onPause={pause}
         onResume={resume}
-        onCancel={cancel}
+        onCancel={async () => { await cancel(); notifyStateChanged(); toast("Session canceled"); }}
       />
     );
   }
@@ -520,9 +583,10 @@ export default function TimerPage() {
     <>
       {otherTabActive && (
         <div
-          className="mx-6 mt-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          className="mx-4 lg:mx-8 mt-6 rounded-lg border border-amber-300 bg-warning-muted px-4 py-3 text-sm text-amber-800 flex items-center gap-2"
           role="alert"
         >
+          <AlertTriangle size={16} strokeWidth={2} className="shrink-0" />
           A timer is running in another tab. Starting a new timer here may cause conflicts.
         </div>
       )}

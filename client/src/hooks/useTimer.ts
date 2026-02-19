@@ -223,6 +223,48 @@ export function useTimer() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ─── Cross-tab sync via storage event ─────
+  // When another tab writes to localStorage, re-read the state.
+
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return;
+
+      // Re-read from localStorage — e.newValue is only set for cross-tab
+      // native storage events. For manually-dispatched events (from
+      // BroadcastChannel nudges), it's undefined.
+      const raw = e.newValue ?? localStorage.getItem(STORAGE_KEY);
+
+      if (!raw) {
+        // Timer cleared in another tab
+        setTimerState(null);
+        setRemainingSeconds(0);
+        setElapsedSeconds(0);
+        workerRef.current?.postMessage({ command: "stop" });
+        return;
+      }
+
+      try {
+        const incoming = JSON.parse(raw) as TimerState;
+        setTimerState(incoming);
+        setRemainingSeconds(computeRemaining(incoming));
+        setElapsedSeconds(computeElapsed(incoming));
+
+        // Start/stop worker based on incoming state
+        if (incoming.status === "running" || incoming.status === "paused") {
+          workerRef.current?.postMessage({ command: "start" });
+        } else {
+          workerRef.current?.postMessage({ command: "stop" });
+        }
+      } catch {
+        // Ignore malformed data
+      }
+    };
+
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
   // ─── visibilitychange: recalc on tab focus ─
 
   useEffect(() => {

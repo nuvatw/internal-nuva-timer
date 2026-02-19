@@ -6,21 +6,29 @@ export function Skeleton({ className = "" }: SkeletonProps) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 }
 
-/** Loading skeleton that matches the ReviewPage summary + session layout */
+/** Loading skeleton that matches the ReviewPage summary + charts + session layout */
 export function ReviewSkeleton() {
   return (
-    <div className="space-y-4" aria-label="Loading" role="status">
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-3">
+    <div className="space-y-5" aria-label="Loading" role="status">
+      {/* Summary cards — responsive 2→4 columns */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Skeleton className="h-20" />
+        <Skeleton className="h-20" />
         <Skeleton className="h-20" />
         <Skeleton className="h-20" />
       </div>
-      {/* Department chart */}
-      <Skeleton className="h-28" />
+      {/* Charts row — responsive stacked→side-by-side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <Skeleton className="h-56 lg:col-span-2" />
+        <Skeleton className="h-56" />
+      </div>
       {/* Session cards */}
-      <Skeleton className="h-16" />
-      <Skeleton className="h-16" />
-      <Skeleton className="h-16" />
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-20" />
+        <Skeleton className="h-20" />
+        <Skeleton className="h-20" />
+      </div>
     </div>
   );
 }

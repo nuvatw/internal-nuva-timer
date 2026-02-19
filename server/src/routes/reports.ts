@@ -1,10 +1,12 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
+import { validateDateParams, asyncHandler } from "../middleware/validate.js";
 
 const router = Router();
+const isProduction = process.env.NODE_ENV === "production";
 
 // GET /api/reports/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
-router.get("/summary", async (req: Request, res: Response) => {
+router.get("/summary", validateDateParams, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
   const { start, end } = req.query;
 
@@ -15,7 +17,7 @@ router.get("/summary", async (req: Request, res: Response) => {
     return;
   }
 
-  const { department_id, project_id, status: statusFilter, q } = req.query;
+  const { department_id, project_id, status: statusFilter, q, duration_minutes } = req.query;
 
   // Fetch all non-canceled sessions in range (Asia/Taipei boundaries)
   let query = supabase
@@ -33,15 +35,17 @@ router.get("/summary", async (req: Request, res: Response) => {
   } else {
     query = query.in("status", ["completed_yes", "completed_no"]);
   }
+  if (duration_minutes) query = query.eq("duration_minutes", Number(duration_minutes));
   if (q) {
-    const keyword = `%${q}%`;
+    const keyword = `%${(q as string).slice(0, 100)}%`;
     query = query.or(`planned_title.ilike.${keyword},actual_title.ilike.${keyword},notes.ilike.${keyword}`);
   }
 
   const { data: sessions, error } = await query;
 
   if (error) {
-    res.status(500).json({ error: { code: "SERVER_ERROR", message: error.message } });
+    const message = isProduction ? "Database operation failed" : error.message;
+    res.status(500).json({ error: { code: "SERVER_ERROR", message } });
     return;
   }
 
@@ -77,6 +81,6 @@ router.get("/summary", async (req: Request, res: Response) => {
     session_count: sessions?.length ?? 0,
     by_department: byDepartment,
   });
-});
+}));
 
 export default router;

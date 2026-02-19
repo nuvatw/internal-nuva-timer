@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -5,21 +6,25 @@ import {
   Navigate,
   useLocation,
 } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProfileProvider, useProfile } from "./contexts/ProfileContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { useReducedMotion } from "./hooks/useReducedMotion";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AppLayout from "./components/AppLayout";
 import LoginPage from "./pages/LoginPage";
 import OnboardingPage from "./pages/OnboardingPage";
 import TimerPage from "./pages/TimerPage";
-import ReviewPage from "./pages/ReviewPage";
-import SettingsPage from "./pages/SettingsPage";
+
+const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function LoadingScreen() {
   return (
     <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Loading">
-      <div className="text-gray-400 text-sm">Loading...</div>
+      <div className="text-text-tertiary text-sm">Loading...</div>
     </div>
   );
 }
@@ -91,26 +96,39 @@ function AppRoutes() {
         }
       >
         <Route path="/timer" element={<TimerPage />} />
-        <Route path="/review" element={<ReviewPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/review" element={<Suspense fallback={<LoadingScreen />}><ReviewPage /></Suspense>} />
+        <Route path="/settings" element={<Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>} />
       </Route>
       <Route path="*" element={<Navigate to="/timer" replace />} />
     </Routes>
   );
 }
 
+function MotionProvider({ children }: { children: React.ReactNode }) {
+  const reduced = useReducedMotion();
+  return (
+    <MotionConfig reducedMotion={reduced ? "always" : "never"}>
+      {children}
+    </MotionConfig>
+  );
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
-        <AuthProvider>
-          <ProfileProvider>
-            <ToastProvider>
-              <AppRoutes />
-            </ToastProvider>
-          </ProfileProvider>
-        </AuthProvider>
-      </BrowserRouter>
+      <ThemeProvider>
+        <MotionProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <ProfileProvider>
+                <ToastProvider>
+                  <AppRoutes />
+                </ToastProvider>
+              </ProfileProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </MotionProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

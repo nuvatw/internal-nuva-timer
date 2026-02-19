@@ -1,10 +1,17 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
+import { validateIdParam, asyncHandler } from "../middleware/validate.js";
 
 const router = Router();
+const isProduction = process.env.NODE_ENV === "production";
+
+function dbError(res: Response, error: { message: string }) {
+  const message = isProduction ? "Database operation failed" : error.message;
+  res.status(500).json({ error: { code: "SERVER_ERROR", message } });
+}
 
 // GET /api/projects
-router.get("/", async (req: Request, res: Response) => {
+router.get("/", asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
   const includeArchived = req.query.include_archived === "true";
 
@@ -20,16 +27,13 @@ router.get("/", async (req: Request, res: Response) => {
 
   const { data, error } = await query;
 
-  if (error) {
-    res.status(500).json({ error: { code: "SERVER_ERROR", message: error.message } });
-    return;
-  }
+  if (error) { dbError(res, error); return; }
 
   res.json(data);
-});
+}));
 
 // POST /api/projects
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
   const { code, name } = req.body;
 
@@ -56,16 +60,13 @@ router.post("/", async (req: Request, res: Response) => {
     .select("id, code, name")
     .single();
 
-  if (error) {
-    res.status(500).json({ error: { code: "SERVER_ERROR", message: error.message } });
-    return;
-  }
+  if (error) { dbError(res, error); return; }
 
   res.status(201).json(data);
-});
+}));
 
 // PATCH /api/projects/:id
-router.patch("/:id", async (req: Request, res: Response) => {
+router.patch("/:id", validateIdParam, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
   const { id } = req.params;
   const { code, name } = req.body;
@@ -94,10 +95,10 @@ router.patch("/:id", async (req: Request, res: Response) => {
   }
 
   res.json(data);
-});
+}));
 
 // POST /api/projects/:id/archive
-router.post("/:id/archive", async (req: Request, res: Response) => {
+router.post("/:id/archive", validateIdParam, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
   const { id } = req.params;
   const { is_archived } = req.body;
@@ -121,6 +122,6 @@ router.post("/:id/archive", async (req: Request, res: Response) => {
   }
 
   res.json(data);
-});
+}));
 
 export default router;

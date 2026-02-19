@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import { Bell, Check } from "lucide-react";
 
 interface AlarmOverlayProps {
   departmentName: string;
@@ -17,23 +19,34 @@ export default function AlarmOverlay({
 }: AlarmOverlayProps) {
   const buttonRef = useRef<HTMLButtonElement>(null);
 
-  // Auto-focus the stop button
   useEffect(() => {
     buttonRef.current?.focus();
   }, []);
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-50 flex items-center justify-center alarm-bg"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="alarm-title"
       aria-live="assertive"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
     >
-      <div className="text-center space-y-6 p-8">
-        <p className="text-5xl" aria-hidden="true">
-          &#9200;
-        </p>
+      <motion.div
+        className="text-center space-y-6 p-8"
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.15, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <motion.div
+          animate={{ rotate: [0, -10, 10, -10, 10, 0] }}
+          transition={{ repeat: Infinity, duration: 0.6, repeatDelay: 1 }}
+        >
+          <Bell size={48} strokeWidth={1.5} className="text-white/90 mx-auto" aria-hidden="true" />
+        </motion.div>
         <h2
           id="alarm-title"
           className="text-3xl font-bold text-white"
@@ -51,25 +64,12 @@ export default function AlarmOverlay({
         <button
           ref={buttonRef}
           onClick={onStop}
-          className="rounded-xl bg-white px-8 py-4 text-lg font-bold text-indigo-700 shadow-lg hover:bg-gray-100 focus:ring-4 focus:ring-white/50 outline-none transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl bg-bg px-8 py-4 text-lg font-bold text-accent shadow-lg hover:bg-surface focus:ring-4 focus:ring-white/50 outline-none transition-colors"
         >
-          Stop Alarm &#10003;
+          Stop Alarm
+          <Check size={20} strokeWidth={2.5} />
         </button>
-      </div>
-
-      <style>{`
-        .alarm-bg {
-          background: linear-gradient(135deg, #4f46e5, #7c3aed);
-          animation: alarm-pulse 1s ease-in-out infinite;
-        }
-        @keyframes alarm-pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.85; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .alarm-bg { animation: none; }
-        }
-      `}</style>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

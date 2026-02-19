@@ -31,7 +31,7 @@ export default function DateRangePicker({ start, end, onApply }: DateRangePicker
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+        className="rounded-lg border border-border bg-bg px-3 py-1.5 text-sm text-text-secondary hover:bg-surface transition-colors"
       >
         Pick dates...
       </button>
@@ -44,7 +44,7 @@ export default function DateRangePicker({ start, end, onApply }: DateRangePicker
             onClick={() => setOpen(false)}
           />
           {/* Popover */}
-          <div className="absolute left-0 top-full mt-1 z-50 rounded-xl border border-gray-200 bg-white shadow-lg p-4">
+          <div className="absolute left-0 top-full mt-1 z-50 rounded-xl border border-border bg-bg shadow-lg p-4">
             <DayPicker
               mode="range"
               numberOfMonths={2}
@@ -55,31 +55,31 @@ export default function DateRangePicker({ start, end, onApply }: DateRangePicker
               classNames={{
                 root: "text-sm",
                 day: "rounded-lg",
-                selected: "bg-indigo-600 text-white",
-                range_start: "bg-indigo-600 text-white rounded-l-lg",
-                range_end: "bg-indigo-600 text-white rounded-r-lg",
-                range_middle: "bg-indigo-50 text-indigo-900",
-                today: "font-bold text-indigo-600",
+                selected: "bg-accent text-text-inverted",
+                range_start: "bg-accent text-text-inverted rounded-l-lg",
+                range_end: "bg-accent text-text-inverted rounded-r-lg",
+                range_middle: "bg-accent-muted text-accent",
+                today: "font-bold text-accent",
               }}
             />
-            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-border-subtle">
               <button
                 onClick={handleReset}
-                className="text-xs text-gray-500 hover:text-gray-700"
+                className="text-xs text-text-tertiary hover:text-text-secondary"
               >
                 Reset
               </button>
               <div className="flex gap-2">
                 <button
                   onClick={() => setOpen(false)}
-                  className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-text-secondary hover:bg-surface"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleApply}
                   disabled={!range?.from || !range?.to}
-                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50"
                 >
                   Apply
                 </button>

@@ -39,7 +39,7 @@ function AvatarDropdown({
   setTheme,
   signOut,
 }: {
-  profile: { display_name: string; avatar_emoji: string | null } | null;
+  profile: { display_name: string | null; avatar_emoji: string | null } | null;
   AvatarIcon: React.ElementType;
   theme: string;
   setTheme: (t: "light" | "dark" | "system") => void;

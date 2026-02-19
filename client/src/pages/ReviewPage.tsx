@@ -254,7 +254,7 @@ const DepartmentBarChart = memo(function DepartmentBarChart({
                 fontSize: 12,
                 boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
               }}
-              formatter={(value: number) => [formatMinutes(value), "Time"]}
+              formatter={(value: number | undefined) => [formatMinutes(value ?? 0), "Time"]}
             />
             <Bar dataKey="minutes" radius={[0, 4, 4, 0]} animationDuration={600}>
               {data.map((entry, i) => (

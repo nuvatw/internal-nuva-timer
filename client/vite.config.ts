@@ -12,19 +12,5 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Core React runtime — rarely changes
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          // Animation — large, rarely changes
-          'vendor-motion': ['framer-motion'],
-          // Supabase client
-          'vendor-supabase': ['@supabase/supabase-js'],
-          // Charting (only used by ReviewPage lazy chunk)
-          'vendor-recharts': ['recharts'],
-        },
-      },
-    },
   },
 })

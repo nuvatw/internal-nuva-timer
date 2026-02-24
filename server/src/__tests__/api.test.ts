@@ -66,6 +66,7 @@ beforeEach(() => {
 
 describe("GET /api/health", () => {
   it("returns ok without auth", async () => {
+    mockFrom.mockReturnValue(mockQuery([{ id: "1" }]));
     const res = await request(app).get("/api/health");
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("ok");
@@ -109,7 +110,7 @@ describe("POST /api/sessions/start", () => {
       .send({
         department_id: "dept-1",
         project_id: "proj-1",
-        duration_minutes: 45, // invalid, must be 30 or 60
+        duration_minutes: 3, // invalid, must be 5–120
         planned_title: "Test",
       });
     expect(res.status).toBe(400);
@@ -155,7 +156,7 @@ describe("POST /api/sessions/:id/complete", () => {
   it("rejects non-boolean completed", async () => {
     mockAuthSuccess();
     const res = await request(app)
-      .post("/api/sessions/session-1/complete")
+      .post("/api/sessions/00000000-0000-0000-0000-000000000001/complete")
       .set("Authorization", "Bearer valid-token")
       .send({ completed: "yes" });
     expect(res.status).toBe(400);
@@ -165,7 +166,7 @@ describe("POST /api/sessions/:id/complete", () => {
   it("rejects completed=false without actual_title", async () => {
     mockAuthSuccess();
     const res = await request(app)
-      .post("/api/sessions/session-1/complete")
+      .post("/api/sessions/00000000-0000-0000-0000-000000000001/complete")
       .set("Authorization", "Bearer valid-token")
       .send({ completed: false });
     expect(res.status).toBe(400);
@@ -175,7 +176,7 @@ describe("POST /api/sessions/:id/complete", () => {
   it("rejects actual_title over 200 chars", async () => {
     mockAuthSuccess();
     const res = await request(app)
-      .post("/api/sessions/session-1/complete")
+      .post("/api/sessions/00000000-0000-0000-0000-000000000001/complete")
       .set("Authorization", "Bearer valid-token")
       .send({
         completed: false,

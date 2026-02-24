@@ -27,6 +27,8 @@ const sections: ShortcutSection[] = [
     shortcuts: [
       { keys: ["g", "t"], label: "Go to Timer" },
       { keys: ["g", "r"], label: "Go to Review" },
+      { keys: ["g", "c"], label: "Go to Calendar" },
+      { keys: ["g", "l"], label: "Go to Level" },
       { keys: ["g", "s"], label: "Go to Settings" },
     ],
   },
@@ -34,6 +36,16 @@ const sections: ShortcutSection[] = [
     title: "Timer",
     shortcuts: [
       { keys: ["Space"], label: "Pause / Resume" },
+    ],
+  },
+  {
+    title: "Calendar",
+    shortcuts: [
+      { keys: ["←"], label: "Previous week / month" },
+      { keys: ["→"], label: "Next week / month" },
+      { keys: ["t"], label: "Go to today" },
+      { keys: ["w"], label: "Week view" },
+      { keys: ["m"], label: "Month view" },
     ],
   },
   {
@@ -123,7 +135,7 @@ export default function KeyboardShortcutsDialog({
             <div className="px-5 py-4 space-y-5 max-h-[60vh] overflow-y-auto">
               {sections.map((section) => (
                 <div key={section.title}>
-                  <h3 className="text-[10px] font-semibold text-text-tertiary uppercase tracking-wider mb-2">
+                  <h3 className="label-caps text-[10px] font-semibold mb-2">
                     {section.title}
                   </h3>
                   <div className="space-y-1.5">

@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
 import { validateDateParams, asyncHandler } from "../middleware/validate.js";
+import { dbError } from "../middleware/errors.js";
 
 const router = Router();
-const isProduction = process.env.NODE_ENV === "production";
 
 // GET /api/reports/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
 router.get("/summary", validateDateParams, asyncHandler(async (req: Request, res: Response) => {
@@ -43,11 +43,7 @@ router.get("/summary", validateDateParams, asyncHandler(async (req: Request, res
 
   const { data: sessions, error } = await query;
 
-  if (error) {
-    const message = isProduction ? "Database operation failed" : error.message;
-    res.status(500).json({ error: { code: "SERVER_ERROR", message } });
-    return;
-  }
+  if (error) { dbError(res, error); return; }
 
   let totalMinutes = 0;
   const byDeptMap = new Map<string, { department_id: string; name: string; total_minutes: number; count: number }>();

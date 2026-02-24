@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Download,
@@ -64,16 +65,7 @@ export default function ExportMenu({
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  useClickOutside(ref, open, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
@@ -128,7 +120,7 @@ export default function ExportMenu({
             transition={{ duration: 0.15 }}
           >
             <div className="px-3 py-2 border-b border-border">
-              <p className="text-[10px] text-text-tertiary uppercase tracking-wider font-semibold">
+              <p className="label-caps text-[10px] font-semibold">
                 Export format
               </p>
             </div>

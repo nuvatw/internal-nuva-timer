@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X } from "lucide-react";
-import { overlayVariants, modalVariants, modalTransition } from "../lib/motion";
+import { completionOverlayVariants, completionModalVariants, completionModalTransition } from "../lib/motion";
+import { useFocusTrap } from "../hooks/useFocusTrap";
 
 interface CompletionModalProps {
   plannedTitle: string;
@@ -21,41 +22,7 @@ export default function CompletionModal({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const firstInputRef = useRef<HTMLInputElement>(null);
-
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    firstInputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-
-      const focusable = dialog.querySelectorAll<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (focusable.length === 0) return;
-
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-
-      if (e.shiftKey && document.activeElement === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
+  const trapRef = useFocusTrap<HTMLDivElement>(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,25 +49,25 @@ export default function CompletionModal({
 
   return (
     <motion.div
-      ref={dialogRef}
+      ref={trapRef}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="completion-title"
-      variants={overlayVariants}
+      variants={completionOverlayVariants}
       initial="initial"
       animate="animate"
       exit="exit"
-      transition={modalTransition}
+      transition={completionModalTransition}
     >
       <motion.form
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-xl bg-bg p-6 shadow-lg space-y-5"
-        variants={modalVariants}
+        variants={completionModalVariants}
         initial="initial"
         animate="animate"
         exit="exit"
-        transition={modalTransition}
+        transition={completionModalTransition}
       >
         <h3 id="completion-title" className="text-lg font-semibold text-text-primary">
           Session Complete
@@ -109,7 +76,7 @@ export default function CompletionModal({
         <div className="rounded-lg bg-surface px-3 py-2.5">
           <p className="text-xs text-text-tertiary">Planned</p>
           <p className="text-sm text-text-primary font-medium mt-0.5">
-            &ldquo;{plannedTitle}&rdquo;
+            {plannedTitle}
           </p>
         </div>
 
@@ -131,7 +98,6 @@ export default function CompletionModal({
                 }`}
               >
                 <input
-                  ref={val === true ? firstInputRef : undefined}
                   type="radio"
                   name="completed"
                   checked={completed === val}
@@ -177,7 +143,7 @@ export default function CompletionModal({
               maxLength={200}
               rows={2}
               autoFocus
-              className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none resize-none"
+              className="input w-full px-3 py-2 resize-none"
             />
           </motion.div>
         )}
@@ -197,7 +163,7 @@ export default function CompletionModal({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Any additional notes..."
             rows={2}
-            className="w-full rounded-lg border border-border px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none resize-none"
+            className="input w-full px-3 py-2 resize-none"
           />
         </div>
 
@@ -206,7 +172,7 @@ export default function CompletionModal({
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+          className="btn-primary w-full px-4 py-3 font-semibold"
         >
           {saving ? "Saving..." : "Save Session"}
         </button>

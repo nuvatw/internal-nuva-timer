@@ -11,6 +11,8 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ProfileProvider, useProfile } from "./contexts/ProfileContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { SfxProvider } from "./contexts/SfxContext";
+import { ProgressProvider } from "./contexts/ProgressContext";
 import { useReducedMotion } from "./hooks/useReducedMotion";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AppLayout from "./components/AppLayout";
@@ -19,6 +21,8 @@ import OnboardingPage from "./pages/OnboardingPage";
 import TimerPage from "./pages/TimerPage";
 
 const ReviewPage = lazy(() => import("./pages/ReviewPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const LevelPage = lazy(() => import("./pages/LevelPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function LoadingScreen() {
@@ -97,6 +101,8 @@ function AppRoutes() {
       >
         <Route path="/timer" element={<TimerPage />} />
         <Route path="/review" element={<Suspense fallback={<LoadingScreen />}><ReviewPage /></Suspense>} />
+        <Route path="/calendar" element={<Suspense fallback={<LoadingScreen />}><CalendarPage /></Suspense>} />
+        <Route path="/level" element={<Suspense fallback={<LoadingScreen />}><LevelPage /></Suspense>} />
         <Route path="/settings" element={<Suspense fallback={<LoadingScreen />}><SettingsPage /></Suspense>} />
       </Route>
       <Route path="*" element={<Navigate to="/timer" replace />} />
@@ -122,7 +128,11 @@ export default function App() {
             <AuthProvider>
               <ProfileProvider>
                 <ToastProvider>
-                  <AppRoutes />
+                  <SfxProvider>
+                    <ProgressProvider>
+                      <AppRoutes />
+                    </ProgressProvider>
+                  </SfxProvider>
                 </ToastProvider>
               </ProfileProvider>
             </AuthProvider>

@@ -93,6 +93,16 @@ describe("computeRemaining", () => {
     expect(computeRemaining(state)).toBe(25 * 60);
   });
 
+  it("returns 0 when sub-second remaining (floor, not ceil)", () => {
+    const startedAt = "2026-02-15T10:00:00+08:00";
+    // 500ms before the 30-minute mark → 0.5s remaining
+    vi.setSystemTime(new Date("2026-02-15T10:29:59.500+08:00"));
+
+    const state = makeState({ startedAt, durationMinutes: 30 });
+    // Math.floor(500/1000) = 0, not 1 (which ceil would give)
+    expect(computeRemaining(state)).toBe(0);
+  });
+
   it("works with 60-minute duration", () => {
     const startedAt = "2026-02-15T10:00:00+08:00";
     vi.setSystemTime(new Date("2026-02-15T10:30:00+08:00"));

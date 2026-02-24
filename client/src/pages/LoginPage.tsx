@@ -215,13 +215,13 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full rounded-lg border border-border px-4 py-3 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none transition-colors"
+                  className="input w-full px-4 py-3"
                 />
               </div>
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-accent px-4 py-3 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                className="btn-primary w-full px-4 py-3"
               >
                 {loading ? "Sending..." : "Send Verification Code"}
               </button>

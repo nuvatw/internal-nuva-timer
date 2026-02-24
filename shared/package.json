@@ -1,0 +1,20 @@
+{
+  "name": "@nuva/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./game": {
+      "types": "./dist/game.d.ts",
+      "default": "./dist/game.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --exclude dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
+  }
+}

@@ -14,33 +14,15 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { formatTime, formatFullDate, toYMD } from "../lib/dates";
+import { formatTime, formatTimeRange, formatFullDate, formatMinutes, toYMD } from "../lib/dates";
 import { toast } from "../contexts/ToastContext";
 import { tapScale } from "../lib/motion";
-
-// ─── Types ─────────────────────────────────
-
-interface Session {
-  id: string;
-  department_id: string;
-  project_id: string;
-  duration_minutes: number;
-  status: string;
-  planned_title: string;
-  actual_title: string | null;
-  notes: string | null;
-  started_at: string;
-  ended_at: string | null;
-  canceled_at: string | null;
-  elapsed_seconds: number | null;
-  departments: { name: string };
-  projects: { code: string | null; name: string };
-}
+import type { Department, Project, Session } from "../types/models";
 
 interface SessionDetailPanelProps {
   session: Session | null;
   onClose: () => void;
-  onUpdated: () => void;
+  onUpdated: (updated?: Session) => void;
 }
 
 // ─── Status Helpers ────────────────────────
@@ -84,6 +66,13 @@ function DetailRow({
   );
 }
 
+// ─── Helpers ──────────────────────────────
+
+/** Extract "YYYY-MM-DD" from an ISO string */
+function isoToDateInput(iso: string): string {
+  return toYMD(new Date(iso));
+}
+
 // ─── Panel ─────────────────────────────────
 
 export default function SessionDetailPanel({
@@ -92,46 +81,93 @@ export default function SessionDetailPanel({
   onUpdated,
 }: SessionDetailPanelProps) {
   const panelRef = useFocusTrap<HTMLDivElement>(!!session);
-  const [editingNotes, setEditingNotes] = useState(false);
-  const [notesValue, setNotesValue] = useState("");
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Edit form state
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [editDeptId, setEditDeptId] = useState("");
+  const [editProjId, setEditProjId] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editStartTime, setEditStartTime] = useState("");
+  const [editEndTime, setEditEndTime] = useState("");
+  const [editDuration, setEditDuration] = useState(30);
+  const [editNotes, setEditNotes] = useState("");
+
   // Reset state when session changes
   useEffect(() => {
     if (session) {
-      setNotesValue(session.notes ?? "");
-      setEditingNotes(false);
+      setEditing(false);
       setConfirmDelete(false);
     }
   }, [session]);
+
+  // Populate edit form when entering edit mode
+  const enterEdit = useCallback(() => {
+    if (!session) return;
+    setEditDeptId(session.department_id);
+    setEditProjId(session.project_id);
+    setEditDate(isoToDateInput(session.started_at));
+    setEditStartTime(formatTime(session.started_at));
+    const endIso = session.ended_at ?? session.canceled_at;
+    setEditEndTime(endIso ? formatTime(endIso) : "");
+    setEditDuration(session.duration_minutes);
+    setEditNotes(session.notes ?? "");
+
+    // Fetch reference data
+    if (departments.length === 0) {
+      api.get<Department[]>("/departments").then(setDepartments);
+    }
+    if (projects.length === 0) {
+      api.get<Project[]>("/projects").then(setProjects);
+    }
+
+    setEditing(true);
+  }, [session, departments.length, projects.length]);
+
+  const cancelEdit = useCallback(() => {
+    setEditing(false);
+  }, []);
 
   // Close on Escape
   useEffect(() => {
     if (!session) return;
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (editing) cancelEdit();
+        else onClose();
+      }
     };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  }, [session, onClose]);
+  }, [session, editing, onClose, cancelEdit]);
 
-  const handleSaveNotes = useCallback(async () => {
+  const handleSave = useCallback(async () => {
     if (!session) return;
     setSaving(true);
     try {
-      await api.patch(`/sessions/${session.id}`, {
-        notes: notesValue.trim() || null,
+      const started_at = `${editDate}T${editStartTime}:00+08:00`;
+      const ended_at = `${editDate}T${editEndTime}:00+08:00`;
+
+      const updated = await api.patch<Session>(`/sessions/${session.id}`, {
+        department_id: editDeptId,
+        project_id: editProjId,
+        started_at,
+        ended_at,
+        duration_minutes: editDuration,
+        notes: editNotes.trim() || null,
       });
-      toast.success("Notes updated");
-      setEditingNotes(false);
-      onUpdated();
+      toast.success("Session updated");
+      setEditing(false);
+      onUpdated(updated);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
     }
     setSaving(false);
-  }, [session, notesValue, onUpdated]);
+  }, [session, editDeptId, editProjId, editDate, editStartTime, editEndTime, editDuration, editNotes, onUpdated]);
 
   const handleDelete = useCallback(async () => {
     if (!session) return;
@@ -182,13 +218,24 @@ export default function SessionDetailPanel({
               <h2 className="text-base font-semibold text-text-primary">
                 Session Details
               </h2>
-              <button
-                onClick={onClose}
-                className="h-8 w-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-raised transition-colors"
-                aria-label="Close"
-              >
-                <X size={18} strokeWidth={2} />
-              </button>
+              <div className="flex items-center gap-1">
+                {isFinished && !editing && (
+                  <button
+                    onClick={enterEdit}
+                    className="h-8 w-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-accent hover:bg-surface-raised transition-colors"
+                    aria-label="Edit"
+                  >
+                    <Pencil size={16} strokeWidth={2} />
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="h-8 w-8 rounded-lg flex items-center justify-center text-text-tertiary hover:text-text-primary hover:bg-surface-raised transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={18} strokeWidth={2} />
+                </button>
+              </div>
             </div>
 
             {/* Content */}
@@ -223,183 +270,235 @@ export default function SessionDetailPanel({
                   )}
               </div>
 
-              {/* Details */}
-              <DetailRow icon={Briefcase} label="Department">
-                {session.departments.name}
-              </DetailRow>
-
-              <DetailRow icon={FolderOpen} label="Project">
-                {session.projects.code ? (
-                  <>
-                    <span className="font-mono text-xs bg-surface-raised px-1.5 py-0.5 rounded mr-1.5">
-                      {session.projects.code}
-                    </span>
-                    {session.projects.name}
-                  </>
-                ) : (
-                  session.projects.name
-                )}
-              </DetailRow>
-
-              <DetailRow icon={Clock} label="Duration">
-                <span className="font-semibold tabular-nums">
-                  {session.duration_minutes}m
-                </span>
-                {session.status === "canceled" &&
-                  session.elapsed_seconds != null && (
-                    <span className="text-text-tertiary ml-2">
-                      (elapsed:{" "}
-                      {Math.floor(session.elapsed_seconds / 60)}m{" "}
-                      {session.elapsed_seconds % 60}s)
-                    </span>
-                  )}
-              </DetailRow>
-
-              <DetailRow icon={Calendar} label="Time">
-                <div className="space-y-0.5">
-                  <p>
-                    {formatFullDate(toYMD(new Date(session.started_at)))},{" "}
-                    <span className="font-mono tabular-nums">
-                      {formatTime(session.started_at)}
-                    </span>
-                  </p>
-                  {session.ended_at && (
-                    <p className="text-text-secondary">
-                      Ended{" "}
-                      <span className="font-mono tabular-nums">
-                        {formatTime(session.ended_at)}
-                      </span>
-                    </p>
-                  )}
-                  {session.canceled_at && (
-                    <p className="text-text-secondary">
-                      Canceled{" "}
-                      <span className="font-mono tabular-nums">
-                        {formatTime(session.canceled_at)}
-                      </span>
-                    </p>
-                  )}
-                </div>
-              </DetailRow>
-
-              {/* Notes */}
-              <div className="pt-2 border-t border-border-subtle">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <FileText
-                      size={14}
-                      strokeWidth={1.75}
-                      className="text-text-tertiary"
-                    />
-                    <span className="text-xs text-text-tertiary uppercase tracking-wider">
-                      Notes
-                    </span>
-                  </div>
-                  {isFinished && !editingNotes && (
-                    <button
-                      onClick={() => setEditingNotes(true)}
-                      className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover font-medium transition-colors"
+              {editing ? (
+                /* ─── Edit Mode ─────────────────── */
+                <div className="space-y-4 py-2">
+                  {/* Department */}
+                  <div>
+                    <label className="block label-caps mb-1">Department</label>
+                    <select
+                      value={editDeptId}
+                      onChange={(e) => setEditDeptId(e.target.value)}
+                      className="input w-full px-3 py-2"
                     >
-                      <Pencil size={12} strokeWidth={2} />
-                      Edit
-                    </button>
-                  )}
-                </div>
+                      {departments.map((d) => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
 
-                {editingNotes ? (
-                  <div className="space-y-2">
+                  {/* Project */}
+                  <div>
+                    <label className="block label-caps mb-1">Project</label>
+                    <select
+                      value={editProjId}
+                      onChange={(e) => setEditProjId(e.target.value)}
+                      className="input w-full px-3 py-2"
+                    >
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.code ? `${p.code} — ` : ""}{p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date + Time */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block label-caps mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(e) => setEditDate(e.target.value)}
+                        className="input w-full px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block label-caps mb-1">Start</label>
+                      <input
+                        type="time"
+                        value={editStartTime}
+                        onChange={(e) => setEditStartTime(e.target.value)}
+                        className="input w-full px-3 py-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="block label-caps mb-1">End</label>
+                      <input
+                        type="time"
+                        value={editEndTime}
+                        onChange={(e) => setEditEndTime(e.target.value)}
+                        className="input w-full px-3 py-2"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <label className="block label-caps mb-1">Duration</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="range"
+                        min={5}
+                        max={60}
+                        step={5}
+                        value={editDuration}
+                        onChange={(e) => setEditDuration(Number(e.target.value))}
+                        className="flex-1 accent-accent cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-text-primary w-14 text-right tabular-nums">
+                        {editDuration} min
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block label-caps mb-1">Notes</label>
                     <textarea
-                      value={notesValue}
-                      onChange={(e) => setNotesValue(e.target.value)}
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
                       placeholder="Add session notes..."
                       rows={3}
-                      autoFocus
-                      className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-text-primary focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none resize-none"
+                      className="input w-full px-3 py-2 resize-none"
                     />
-                    <div className="flex items-center gap-2">
-                      <motion.button
-                        onClick={handleSaveNotes}
-                        disabled={saving}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
-                        whileTap={tapScale}
-                      >
-                        <Check size={12} strokeWidth={2} />
-                        {saving ? "Saving..." : "Save"}
-                      </motion.button>
-                      <button
-                        onClick={() => {
-                          setNotesValue(session.notes ?? "");
-                          setEditingNotes(false);
-                        }}
-                        className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
                   </div>
-                ) : (
-                  <p
-                    className={`text-sm leading-relaxed ${
-                      session.notes
-                        ? "text-text-secondary"
-                        : "text-text-tertiary italic"
-                    }`}
-                  >
-                    {session.notes || "No notes"}
-                  </p>
-                )}
-              </div>
-            </div>
+                </div>
+              ) : (
+                /* ─── View Mode ─────────────────── */
+                <>
+                  <DetailRow icon={Briefcase} label="Department">
+                    {session.departments.name}
+                  </DetailRow>
 
-            {/* Footer — Delete action */}
-            <div className="px-6 py-4 border-t border-border">
-              <AnimatePresence mode="wait">
-                {confirmDelete ? (
-                  <motion.div
-                    key="confirm"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="space-y-3"
-                  >
-                    <div className="flex items-center gap-2 text-sm text-destructive">
-                      <AlertTriangle size={14} strokeWidth={2} />
-                      <span className="font-medium">
-                        Delete this session permanently?
+                  <DetailRow icon={FolderOpen} label="Project">
+                    {session.projects.code ? (
+                      <>
+                        <span className="font-mono text-xs bg-surface-raised px-1.5 py-0.5 rounded mr-1.5">
+                          {session.projects.code}
+                        </span>
+                        {session.projects.name}
+                      </>
+                    ) : (
+                      session.projects.name
+                    )}
+                  </DetailRow>
+
+                  <DetailRow icon={Calendar} label="Time">
+                    <div className="space-y-0.5">
+                      <p className="font-mono tabular-nums font-semibold">
+                        {formatTimeRange(session.started_at, session.ended_at, session.canceled_at)}
+                      </p>
+                      <p className="text-text-secondary text-xs">
+                        {formatFullDate(toYMD(new Date(session.started_at)))}
+                      </p>
+                    </div>
+                  </DetailRow>
+
+                  <DetailRow icon={Clock} label="Duration">
+                    <div className="space-y-0.5">
+                      <span className="font-semibold tabular-nums">
+                        {formatMinutes(session.duration_minutes)} planned
+                      </span>
+                      {session.elapsed_seconds != null && session.elapsed_seconds > 0 && (
+                        <p className="text-text-secondary text-xs">
+                          {formatMinutes(Math.floor(session.elapsed_seconds / 60))} focused
+                          {session.status === "canceled" && " (canceled)"}
+                        </p>
+                      )}
+                    </div>
+                  </DetailRow>
+
+                  {/* Notes (view mode) */}
+                  <div className="pt-2 border-t border-border-subtle">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FileText size={14} strokeWidth={1.75} className="text-text-tertiary" />
+                      <span className="text-xs text-text-tertiary uppercase tracking-wider">
+                        Notes
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <motion.button
-                        onClick={handleDelete}
-                        disabled={deleting}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:bg-destructive/90 disabled:opacity-50 transition-colors"
-                        whileTap={tapScale}
-                      >
-                        <Trash2 size={12} strokeWidth={2} />
-                        {deleting ? "Deleting..." : "Confirm Delete"}
-                      </motion.button>
-                      <button
-                        onClick={() => setConfirmDelete(false)}
-                        className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </motion.div>
-                ) : (
+                    <p
+                      className={`text-sm leading-relaxed ${
+                        session.notes ? "text-text-secondary" : "text-text-tertiary italic"
+                      }`}
+                    >
+                      {session.notes || "No notes"}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-border">
+              {editing ? (
+                <div className="flex items-center gap-2">
                   <motion.button
-                    key="delete"
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    onClick={() => setConfirmDelete(true)}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium text-text-tertiary hover:text-destructive transition-colors"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                    whileTap={tapScale}
                   >
-                    <Trash2 size={12} strokeWidth={2} />
-                    Delete session
+                    <Check size={14} strokeWidth={2} />
+                    {saving ? "Saving..." : "Save"}
                   </motion.button>
-                )}
-              </AnimatePresence>
+                  <button
+                    onClick={cancelEdit}
+                    className="px-4 py-2 text-sm text-text-tertiary hover:text-text-secondary transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <AnimatePresence mode="wait">
+                  {confirmDelete ? (
+                    <motion.div
+                      key="confirm"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      className="space-y-3"
+                    >
+                      <div className="flex items-center gap-2 text-sm text-destructive">
+                        <AlertTriangle size={14} strokeWidth={2} />
+                        <span className="font-medium">
+                          Delete this session permanently?
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <motion.button
+                          onClick={handleDelete}
+                          disabled={deleting}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-destructive px-3 py-1.5 text-xs font-medium text-white hover:bg-destructive/90 disabled:opacity-50 transition-colors"
+                          whileTap={tapScale}
+                        >
+                          <Trash2 size={12} strokeWidth={2} />
+                          {deleting ? "Deleting..." : "Confirm Delete"}
+                        </motion.button>
+                        <button
+                          onClick={() => setConfirmDelete(false)}
+                          className="text-xs text-text-tertiary hover:text-text-secondary transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="delete"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -4 }}
+                      onClick={() => setConfirmDelete(true)}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium text-text-tertiary hover:text-destructive transition-colors"
+                    >
+                      <Trash2 size={12} strokeWidth={2} />
+                      Delete session
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              )}
             </div>
           </motion.div>
         </>

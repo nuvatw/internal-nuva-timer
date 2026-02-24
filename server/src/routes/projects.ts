@@ -1,14 +1,9 @@
 import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
 import { validateIdParam, asyncHandler } from "../middleware/validate.js";
+import { dbError } from "../middleware/errors.js";
 
 const router = Router();
-const isProduction = process.env.NODE_ENV === "production";
-
-function dbError(res: Response, error: { message: string }) {
-  const message = isProduction ? "Database operation failed" : error.message;
-  res.status(500).json({ error: { code: "SERVER_ERROR", message } });
-}
 
 // GET /api/projects
 router.get("/", asyncHandler(async (req: Request, res: Response) => {

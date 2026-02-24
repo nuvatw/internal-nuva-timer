@@ -50,8 +50,10 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, [session]);
 
   useEffect(() => {
-    setLoading(true);
+    // Only show full-screen loading on initial fetch, not background re-fetches
+    if (!profile) setLoading(true);
     fetchProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProfile]);
 
   return (

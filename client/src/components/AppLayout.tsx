@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   Timer,
   BarChart3,
+  CalendarDays,
+  Trophy,
   Settings,
   LogOut,
   Sun,
@@ -11,23 +13,36 @@ import {
   Monitor,
   WifiOff,
   ChevronDown,
+  Volume2,
+  VolumeX,
+  Flame,
   type LucideIcon,
 } from "lucide-react";
-import { pageVariants, pageTransition } from "../lib/motion";
+import { pageTransition, getRouteIndex, getDirectionalPageVariants } from "../lib/motion";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
 import { useTheme } from "../contexts/ThemeContext";
+import { useSfx } from "../contexts/SfxContext";
+import { useProgress } from "../contexts/ProgressContext";
+import { getLevelTitle } from "@nuva/shared/game";
+import { getLevelTierColors } from "../lib/tier-colors";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { getAvatarIcon } from "../lib/avatar-icons";
 import { useHotkeys, useHotkeySequenceManager } from "../hooks/useHotkeys";
 import CommandPalette, { useCommandPalette } from "./CommandPalette";
 import KeyboardShortcutsDialog from "./KeyboardShortcutsDialog";
+import LevelBadge from "./LevelBadge";
+import XpGainToast from "./XpGainToast";
+
+const LevelUpOverlay = lazy(() => import("./LevelUpOverlay"));
 
 // ─── Tab items (top nav) ─────────────────────
 
 const tabItems: { to: string; label: string; icon: LucideIcon }[] = [
   { to: "/timer", label: "Timer", icon: Timer },
   { to: "/review", label: "Review", icon: BarChart3 },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/level", label: "Level", icon: Trophy },
 ];
 
 // ─── Avatar Dropdown ─────────────────────────
@@ -38,12 +53,18 @@ function AvatarDropdown({
   theme,
   setTheme,
   signOut,
+  isMuted,
+  toggleMute,
+  levelInfo,
 }: {
   profile: { display_name: string | null; avatar_emoji: string | null } | null;
   AvatarIcon: React.ElementType;
   theme: string;
   setTheme: (t: "light" | "dark" | "system") => void;
   signOut: () => void;
+  isMuted: boolean;
+  toggleMute: () => void;
+  levelInfo: { level: number; title: string; xpInLevel: number; xpNeeded: number; dailyXp: number; streak: number } | null;
 }) {
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -105,23 +126,50 @@ function AvatarDropdown({
             transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
             className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-border bg-bg shadow-lg z-50 overflow-hidden"
           >
-            {/* User info */}
+            {/* User info + Level */}
             {profile && (
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
-                <div className="h-9 w-9 rounded-lg bg-accent-muted flex items-center justify-center text-accent shrink-0">
-                  <AvatarIcon size={18} strokeWidth={1.75} />
+              <div className="px-4 py-3 border-b border-border space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-accent-muted flex items-center justify-center text-accent shrink-0">
+                    <AvatarIcon size={18} strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-text-primary truncate">
+                      {profile.display_name}
+                    </p>
+                    <p className="text-xs text-text-tertiary">
+                      {levelInfo ? `Level ${levelInfo.level} · ${levelInfo.title}` : "Level 1"}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-text-primary truncate">
-                    {profile.display_name}
-                  </p>
-                  {/* Level/XP placeholder — wired in Week 6 */}
-                  <p className="text-xs text-text-tertiary">Level 1</p>
-                </div>
+                {levelInfo && (
+                  <div className="space-y-1">
+                    <div className="w-full h-1.5 rounded-full bg-surface-raised overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-accent"
+                        initial={false}
+                        animate={{ width: `${levelInfo.xpNeeded > 0 ? (levelInfo.xpInLevel / levelInfo.xpNeeded) * 100 : 0}%` }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-text-tertiary">
+                      <span>{levelInfo.xpInLevel} / {levelInfo.xpNeeded} XP</span>
+                      <span className="flex items-center gap-1.5">
+                        {levelInfo.streak > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-amber-500">
+                            <Flame size={10} strokeWidth={2.5} />
+                            {levelInfo.streak}d
+                          </span>
+                        )}
+                        {levelInfo.dailyXp > 0 && <span>+{levelInfo.dailyXp} today</span>}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Settings link */}
+            {/* Settings + Sound */}
             <div className="py-1">
               <button
                 onClick={() => { navigate("/settings"); setOpen(false); }}
@@ -129,6 +177,16 @@ function AvatarDropdown({
               >
                 <Settings size={15} strokeWidth={1.75} />
                 Settings
+              </button>
+              <button
+                onClick={toggleMute}
+                className="flex items-center gap-3 w-full px-4 py-2 text-sm text-text-secondary hover:bg-surface-raised transition-colors"
+              >
+                {isMuted ? <VolumeX size={15} strokeWidth={1.75} /> : <Volume2 size={15} strokeWidth={1.75} />}
+                <span className="flex-1 text-left">Sound</span>
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${isMuted ? "bg-destructive-muted text-destructive" : "bg-success-muted text-success"}`}>
+                  {isMuted ? "Off" : "On"}
+                </span>
               </button>
             </div>
 
@@ -173,6 +231,38 @@ function AvatarDropdown({
   );
 }
 
+// ─── Nav XP Bar (memoized) ──────────────────
+
+const NavXpBar = memo(function NavXpBar({ progress }: { progress: NonNullable<ReturnType<typeof useProgress>["progress"]> }) {
+  const xpIn = progress.total_xp - progress.xp_current_level;
+  const xpNeed = progress.xp_next_level - progress.xp_current_level;
+  const pct = xpNeed > 0 ? Math.min(1, xpIn / xpNeed) : 0;
+  const t = getLevelTierColors(progress.current_level);
+
+  return (
+    <Link
+      to="/level"
+      className="hidden sm:flex items-center gap-2.5 group relative"
+      aria-label={`Level ${progress.current_level} — ${xpIn} of ${xpNeed} XP to next level`}
+    >
+      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${t.text} ${t.bg}`}>
+        Lv.{progress.current_level}
+      </span>
+      <div className="w-40 h-2 rounded-full bg-surface-raised overflow-hidden">
+        <motion.div
+          className={`h-full rounded-full ${t.bar}`}
+          initial={false}
+          animate={{ width: `${pct * 100}%` }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        />
+      </div>
+      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] text-text-tertiary tabular-nums opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        {xpNeed - xpIn} XP to Lv.{progress.current_level + 1}
+      </span>
+    </Link>
+  );
+});
+
 // ─── App Layout ─────────────────────────────
 
 export default function AppLayout() {
@@ -182,9 +272,40 @@ export default function AppLayout() {
   const { profile } = useProfile();
   const { theme, setTheme } = useTheme();
   const online = useOnlineStatus();
+  const { isMuted, toggleMute } = useSfx();
+  const { progress, levelChanged, clearLevelUp } = useProgress();
   const { open: paletteOpen, setOpen: setPaletteOpen } = useCommandPalette();
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const AvatarIcon = getAvatarIcon(profile?.avatar_emoji);
+
+  // ─── Direction-aware page transitions ────────
+  const prevPathRef = useRef(location.pathname);
+  const direction = useMemo(() => {
+    const prevIdx = getRouteIndex(prevPathRef.current);
+    const curIdx = getRouteIndex(location.pathname);
+    return curIdx >= prevIdx ? 1 : -1;
+  }, [location.pathname]);
+
+  useEffect(() => {
+    prevPathRef.current = location.pathname;
+  }, [location.pathname]);
+
+  const directionalVariants = useMemo(
+    () => getDirectionalPageVariants(direction),
+    [direction],
+  );
+
+  // Compute level info for avatar dropdown
+  const levelInfo = progress
+    ? {
+        level: progress.current_level,
+        title: getLevelTitle(progress.current_level),
+        xpInLevel: progress.total_xp - progress.xp_current_level,
+        xpNeeded: progress.xp_next_level - progress.xp_current_level,
+        dailyXp: progress.daily_xp,
+        streak: progress.current_streak,
+      }
+    : null;
 
   // ─── Keyboard shortcuts ───────────────────
 
@@ -192,6 +313,8 @@ export default function AppLayout() {
 
   useHotkeys("g t", useCallback(() => navigate("/timer"), [navigate]));
   useHotkeys("g r", useCallback(() => navigate("/review"), [navigate]));
+  useHotkeys("g c", useCallback(() => navigate("/calendar"), [navigate]));
+  useHotkeys("g l", useCallback(() => navigate("/level"), [navigate]));
   useHotkeys("g s", useCallback(() => navigate("/settings"), [navigate]));
 
   useHotkeys("?", useCallback(() => {
@@ -217,38 +340,57 @@ export default function AppLayout() {
               nuva
             </span>
 
-            <nav className="flex items-center gap-0.5" aria-label="Main navigation">
+            <LayoutGroup id="nav-tabs">
+            <nav className="flex items-center gap-0.5 relative" aria-label="Main navigation">
               {tabItems.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    `relative flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       isActive
-                        ? "text-text-primary bg-surface-raised"
+                        ? "text-text-primary"
                         : "text-text-tertiary hover:text-text-secondary hover:bg-surface-raised/50"
                     }`
                   }
                 >
-                  <Icon size={16} strokeWidth={1.75} />
-                  <span className="hidden sm:inline">{label}</span>
+                  {({ isActive }) => (
+                    <>
+                      {isActive && (
+                        <motion.div
+                          layoutId="tab-indicator"
+                          className="absolute inset-0 rounded-lg bg-surface-raised"
+                          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                        />
+                      )}
+                      <span className="relative z-10 flex items-center gap-2">
+                        <Icon size={16} strokeWidth={1.75} />
+                        <span className="hidden sm:inline">{label}</span>
+                      </span>
+                    </>
+                  )}
                 </NavLink>
               ))}
             </nav>
+            </LayoutGroup>
           </div>
 
-          {/* Right: Avatar Dropdown */}
-          <div className="flex items-center gap-2">
-            {/* Command palette trigger (compact) */}
-            <button
-              onClick={() => setPaletteOpen(true)}
-              className="hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-text-tertiary hover:bg-surface-raised transition-colors"
-              aria-label="Search (⌘K)"
-            >
-              <kbd className="inline-flex items-center gap-0.5 rounded border border-border-subtle bg-surface-raised px-1.5 py-0.5 text-[10px] font-mono text-text-tertiary">
-                ⌘K
-              </kbd>
-            </button>
+          {/* Right: XP bar + Avatar */}
+          <div className="flex items-center gap-3">
+            {/* XP progress — links to Level page */}
+            {!progress ? (
+              <div className="hidden sm:flex items-center gap-2.5">
+                <div className="h-5 w-8 rounded bg-surface-raised animate-pulse" />
+                <div className="w-40 h-2 rounded-full bg-surface-raised animate-pulse" />
+              </div>
+            ) : (
+              <NavXpBar progress={progress} />
+            )}
+
+            {/* Mobile-only compact badge */}
+            <Link to="/level" className="sm:hidden">
+              <LevelBadge />
+            </Link>
 
             <AvatarDropdown
               profile={profile}
@@ -256,6 +398,9 @@ export default function AppLayout() {
               theme={theme}
               setTheme={setTheme}
               signOut={signOut}
+              isMuted={isMuted}
+              toggleMute={toggleMute}
+              levelInfo={levelInfo}
             />
           </div>
         </div>
@@ -285,11 +430,11 @@ export default function AppLayout() {
           )}
         </AnimatePresence>
 
-        <div className="max-w-3xl mx-auto">
+        <div className={`mx-auto ${location.pathname === "/calendar" ? "max-w-6xl" : "max-w-3xl"}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              variants={pageVariants}
+              variants={directionalVariants}
               initial="initial"
               animate="animate"
               exit="exit"
@@ -303,6 +448,15 @@ export default function AppLayout() {
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} onOpenShortcuts={() => setShortcutsOpen(true)} />
       <KeyboardShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <XpGainToast />
+
+      <AnimatePresence>
+        {levelChanged && (
+          <Suspense fallback={null}>
+            <LevelUpOverlay levelChanged={levelChanged} onDismiss={clearLevelUp} />
+          </Suspense>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

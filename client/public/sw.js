@@ -1,13 +1,21 @@
 /// <reference lib="webworker" />
 
-const CACHE_NAME = "nuva-v1";
+const CACHE_NAME = "nuva-v2";
 
 // ─── Install ─────────────────────────────────
-// Pre-cache the app shell so the SPA works offline.
+// Pre-cache the app shell and SFX so they work offline.
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(["/", "/alarm.mp3"]))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll([
+        "/",
+        "/sfx/clicked.wav",
+        "/sfx/sectionStart.wav",
+        "/sfx/sectionComplete.wav",
+        "/sfx/levelUp.wav",
+      ])
+    )
   );
   self.skipWaiting();
 });
@@ -83,7 +91,7 @@ self.addEventListener("fetch", (event) => {
     caches.match(request).then((cached) => {
       const fetchPromise = fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (response.ok && response.status !== 206) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }

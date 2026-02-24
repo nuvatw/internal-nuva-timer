@@ -1,47 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../lib/api";
 import TimerWorker from "../lib/timer.worker?worker";
+import type { TimerState, TimerStatus, SessionResponse, StartParams, ActiveSessionResponse } from "../types/timer";
 
-// ─── Types ─────────────────────────────────
-
-export type TimerStatus = "idle" | "running" | "paused" | "finished";
-
-export interface TimerState {
-  sessionId: string;
-  departmentId: string;
-  departmentName: string;
-  projectId: string;
-  projectCode: string | null;
-  projectName: string;
-  plannedTitle: string;
-  durationMinutes: number;
-  startedAt: string; // ISO
-  pausedAt: string | null; // ISO
-  pausedTotalSeconds: number;
-  status: TimerStatus;
-}
-
-interface SessionResponse {
-  id: string;
-  status: string;
-  started_at: string;
-  paused_at: string | null;
-  paused_total_seconds: number;
-  duration_minutes: number;
-  department_id: string;
-  project_id: string;
-  planned_title: string;
-}
-
-export interface StartParams {
-  departmentId: string;
-  departmentName: string;
-  projectId: string;
-  projectCode: string | null;
-  projectName: string;
-  durationMinutes: 30 | 60;
-  plannedTitle: string;
-}
+export type { TimerState, TimerStatus, StartParams };
 
 const STORAGE_KEY = "nuva_timer_state";
 
@@ -82,7 +44,7 @@ export function computeRemaining(state: TimerState): number {
   const elapsedMs = now - startedMs - pausedMs;
   const remainingMs = durationMs - elapsedMs;
 
-  return Math.max(0, Math.ceil(remainingMs / 1000));
+  return Math.max(0, Math.floor(remainingMs / 1000));
 }
 
 // ─── Compute elapsed seconds (for display) ─
@@ -103,14 +65,12 @@ export function computeElapsed(state: TimerState): number {
 
 export function useTimer() {
   const [timerState, setTimerState] = useState<TimerState | null>(loadState);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(() => {
-    const saved = loadState();
-    return saved ? computeRemaining(saved) : 0;
-  });
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(() => {
-    const saved = loadState();
-    return saved ? computeElapsed(saved) : 0;
-  });
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(
+    () => timerState ? computeRemaining(timerState) : 0,
+  );
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(
+    () => timerState ? computeElapsed(timerState) : 0,
+  );
 
   const workerRef = useRef<Worker | null>(null);
   const stateRef = useRef(timerState);
@@ -174,51 +134,96 @@ export function useTimer() {
 
   useEffect(() => {
     const saved = loadState();
-    if (!saved || saved.status === "idle") return;
 
-    // If timer already expired locally, mark finished immediately
-    if (saved.status === "running" && computeRemaining(saved) <= 0) {
-      setTimerState((prev) => prev ? { ...prev, status: "finished" } : null);
-      return;
-    }
+    if (saved && saved.status !== "idle") {
+      // ── Existing localStorage state: verify against server ──
 
-    // Verify against server
-    api
-      .get<{ status: string; paused_total_seconds: number; paused_at: string | null }>(
-        `/sessions/${saved.sessionId}`
-      )
-      .then((serverSession) => {
-        // If server says it's already completed or canceled, clear local state
-        if (
-          serverSession.status === "completed_yes" ||
-          serverSession.status === "completed_no" ||
-          serverSession.status === "canceled"
-        ) {
+      // If timer already expired locally, mark finished immediately
+      if (saved.status === "running" && computeRemaining(saved) <= 0) {
+        setTimerState((prev) => prev ? { ...prev, status: "finished" } : null);
+        return;
+      }
+
+      // Verify against server
+      api
+        .get<{ status: string; paused_total_seconds: number; paused_at: string | null }>(
+          `/sessions/${saved.sessionId}`
+        )
+        .then((serverSession) => {
+          // If server says it's already completed or canceled, clear local state
+          if (
+            serverSession.status === "completed_yes" ||
+            serverSession.status === "completed_no" ||
+            serverSession.status === "canceled"
+          ) {
+            setTimerState(null);
+            setRemainingSeconds(0);
+            setElapsedSeconds(0);
+            workerRef.current?.postMessage({ command: "stop" });
+            return;
+          }
+
+          // Sync paused_total_seconds from server (authoritative)
+          setTimerState((prev) => {
+            if (!prev) return null;
+            const serverStatus = serverSession.status === "paused" ? "paused" : "running";
+            return {
+              ...prev,
+              status: serverStatus as TimerStatus,
+              pausedTotalSeconds: serverSession.paused_total_seconds,
+              pausedAt: serverSession.paused_at,
+            };
+          });
+        })
+        .catch(() => {
+          // If session not found on server, clear local state
           setTimerState(null);
           setRemainingSeconds(0);
           setElapsedSeconds(0);
-          workerRef.current?.postMessage({ command: "stop" });
-          return;
-        }
-
-        // Sync paused_total_seconds from server (authoritative)
-        setTimerState((prev) => {
-          if (!prev) return null;
-          const serverStatus = serverSession.status === "paused" ? "paused" : "running";
-          return {
-            ...prev,
-            status: serverStatus as TimerStatus,
-            pausedTotalSeconds: serverSession.paused_total_seconds,
-            pausedAt: serverSession.paused_at,
-          };
         });
-      })
-      .catch(() => {
-        // If session not found on server, clear local state
-        setTimerState(null);
-        setRemainingSeconds(0);
-        setElapsedSeconds(0);
-      });
+    } else {
+      // ── No localStorage data: check server for active session ──
+      api
+        .get<ActiveSessionResponse | null>("/sessions/active")
+        .then((session) => {
+          if (!session) return; // No active session — stay idle
+
+          const status: TimerStatus =
+            session.status === "paused" ? "paused" : "running";
+
+          const restored: TimerState = {
+            sessionId: session.id,
+            departmentId: session.department_id,
+            departmentName: session.departments.name,
+            projectId: session.project_id,
+            projectCode: session.projects.code,
+            projectName: session.projects.name,
+            plannedTitle: session.planned_title,
+            durationMinutes: session.duration_minutes,
+            startedAt: session.started_at,
+            pausedAt: session.paused_at,
+            pausedTotalSeconds: session.paused_total_seconds,
+            status,
+          };
+
+          // If time has already expired, show completion modal
+          if (computeRemaining(restored) <= 0) {
+            restored.status = "finished";
+            setTimerState(restored);
+            setRemainingSeconds(0);
+            setElapsedSeconds(restored.durationMinutes * 60);
+            return;
+          }
+
+          setTimerState(restored);
+          setRemainingSeconds(computeRemaining(restored));
+          setElapsedSeconds(computeElapsed(restored));
+          workerRef.current?.postMessage({ command: "start" });
+        })
+        .catch(() => {
+          // Network error — stay idle
+        });
+    }
     // Only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

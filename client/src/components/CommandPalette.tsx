@@ -287,7 +287,7 @@ export default function CommandPalette({ open, onClose, onOpenShortcuts }: Comma
               ) : (
                 Array.from(grouped.entries()).map(([section, cmds]) => (
                   <div key={section}>
-                    <p className="px-4 py-1.5 text-[10px] font-semibold text-text-tertiary uppercase tracking-wider">
+                    <p className="label-caps px-4 py-1.5 text-[10px] font-semibold">
                       {section}
                     </p>
                     {cmds.map((cmd) => {

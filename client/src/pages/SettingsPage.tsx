@@ -15,6 +15,8 @@ import {
   Check,
   X,
   Mail,
+  Target,
+  Minus,
   type LucideIcon,
 } from "lucide-react";
 import { api } from "../lib/api";
@@ -23,23 +25,10 @@ import {
   DEFAULT_AVATAR_ICON,
   getAvatarIcon,
 } from "../lib/avatar-icons";
-import { listVariants, listItemVariants } from "../lib/motion";
+import { listVariants, listItemVariants, sectionStaggerVariants, sectionItemVariants } from "../lib/motion";
+import { useProgress } from "../contexts/ProgressContext";
 import { useDocumentTitle } from "../hooks/useDocumentTitle";
-
-// ─── Types ─────────────────────────────────
-
-interface Department {
-  id: string;
-  name: string;
-  is_archived: boolean;
-}
-
-interface Project {
-  id: string;
-  code: string | null;
-  name: string;
-  is_archived: boolean;
-}
+import type { Department, Project } from "../types/models";
 
 // ─── Card Shell ────────────────────────────
 
@@ -57,12 +46,7 @@ function SettingsCard({
   children: React.ReactNode;
 }) {
   return (
-    <motion.section
-      className="rounded-xl border border-border bg-bg overflow-hidden"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <section className="rounded-xl border border-border bg-bg overflow-hidden">
       <div className="flex items-start justify-between gap-4 px-5 py-4 border-b border-border">
         <div className="flex items-center gap-3 min-w-0">
           <div className="h-8 w-8 rounded-lg bg-accent-muted flex items-center justify-center text-accent shrink-0">
@@ -78,7 +62,7 @@ function SettingsCard({
         {action && <div className="shrink-0">{action}</div>}
       </div>
       <div className="px-5 py-4">{children}</div>
-    </motion.section>
+    </section>
   );
 }
 
@@ -144,7 +128,7 @@ function ProfileSection() {
 
           {/* Name input */}
           <div className="flex-1">
-            <label htmlFor="settings-name" className="block text-xs font-medium text-text-tertiary uppercase tracking-wider mb-1.5">
+            <label htmlFor="settings-name" className="block label-caps mb-1.5">
               Display Name
             </label>
             <input
@@ -153,7 +137,7 @@ function ProfileSection() {
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               maxLength={50}
-              className="w-full rounded-lg border border-border bg-bg px-3 py-2.5 text-sm text-text-primary focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none transition-colors"
+              className="input w-full px-3 py-2.5"
             />
           </div>
         </div>
@@ -169,7 +153,7 @@ function ProfileSection() {
               className="overflow-hidden"
             >
               <div className="rounded-lg border border-border bg-surface p-3">
-                <p className="text-[10px] font-medium text-text-tertiary uppercase tracking-wider mb-2">
+                <p className="label-caps text-[10px] mb-2">
                   Choose avatar
                 </p>
                 <div className="grid grid-cols-8 gap-1.5" role="radiogroup" aria-label="Avatar icon">
@@ -204,7 +188,7 @@ function ProfileSection() {
           <button
             onClick={handleSave}
             disabled={saving || !displayName.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="btn-primary inline-flex items-center gap-2 px-4 py-2"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -445,12 +429,12 @@ function DepartmentsSection() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="New department name"
-            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none transition-colors"
+            className="input flex-1 px-3 py-2"
           />
           <button
             onClick={handleAdd}
             disabled={adding || !newName.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="btn-primary inline-flex items-center gap-1.5 px-3 py-2"
           >
             <Plus size={14} strokeWidth={2} />
             Add
@@ -594,7 +578,7 @@ function ProjectsSection() {
             value={newCode}
             onChange={(e) => setNewCode(e.target.value)}
             placeholder="Code"
-            className="w-20 rounded-lg border border-border bg-bg px-3 py-2 text-sm font-mono focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none transition-colors"
+            className="input w-20 px-3 py-2 font-mono"
           />
           <input
             type="text"
@@ -602,17 +586,75 @@ function ProjectsSection() {
             onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleAdd()}
             placeholder="Project name"
-            className="flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none transition-colors"
+            className="input flex-1 px-3 py-2"
           />
           <button
             onClick={handleAdd}
             disabled={adding || !newName.trim()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+            className="btn-primary inline-flex items-center gap-1.5 px-3 py-2"
           >
             <Plus size={14} strokeWidth={2} />
             Add
           </button>
         </div>
+      </div>
+    </SettingsCard>
+  );
+}
+
+// ─── Daily Goal Section ──────────────────
+
+function DailyGoalSection() {
+  const { progress, refresh } = useProgress();
+  const [saving, setSaving] = useState(false);
+
+  const goal = progress?.tomato_goal ?? 20;
+
+  const updateGoal = async (newGoal: number) => {
+    if (newGoal < 5 || newGoal > 30 || newGoal === goal) return;
+    setSaving(true);
+    try {
+      await api.patch("/progress/goal", { tomato_goal: newGoal });
+      await refresh();
+      toast.success(`Daily goal set to ${newGoal}`);
+    } catch {
+      toast.error("Failed to update goal");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <SettingsCard
+      icon={Target}
+      title="Daily Goal"
+      description="How many tomatoes to aim for each day"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => updateGoal(goal - 1)}
+            disabled={saving || goal <= 5}
+            className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-text-secondary hover:bg-surface-raised hover:text-text-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            aria-label="Decrease goal"
+          >
+            <Minus size={14} strokeWidth={2} />
+          </button>
+          <span className="text-2xl font-bold text-text-primary tabular-nums w-10 text-center">
+            {goal}
+          </span>
+          <button
+            onClick={() => updateGoal(goal + 1)}
+            disabled={saving || goal >= 30}
+            className="h-8 w-8 rounded-lg border border-border flex items-center justify-center text-text-secondary hover:bg-surface-raised hover:text-text-primary disabled:opacity-30 disabled:hover:bg-transparent transition-colors"
+            aria-label="Increase goal"
+          >
+            <Plus size={14} strokeWidth={2} />
+          </button>
+        </div>
+        <p className="text-xs text-text-tertiary">
+          Range: 5–30 tomatoes
+        </p>
       </div>
     </SettingsCard>
   );
@@ -624,12 +666,7 @@ function AccountSection() {
   const { user, signOut } = useAuth();
 
   return (
-    <motion.section
-      className="rounded-xl border border-border bg-bg overflow-hidden"
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <section className="rounded-xl border border-border bg-bg overflow-hidden">
       <div className="flex items-start gap-3 px-5 py-4 border-b border-border">
         <div className="h-8 w-8 rounded-lg bg-surface-raised flex items-center justify-center text-text-tertiary shrink-0">
           <Mail size={16} strokeWidth={1.75} />
@@ -650,7 +687,7 @@ function AccountSection() {
           Sign Out
         </button>
       </div>
-    </motion.section>
+    </section>
   );
 }
 
@@ -659,19 +696,35 @@ function AccountSection() {
 export default function SettingsPage() {
   useDocumentTitle("Settings");
   return (
-    <div className="p-6 sm:p-8 space-y-5 max-w-2xl">
+    <motion.div
+      className="p-6 sm:p-8 space-y-5 max-w-2xl"
+      variants={sectionStaggerVariants}
+      initial="initial"
+      animate="animate"
+    >
       {/* Page header */}
-      <div>
+      <motion.div variants={sectionItemVariants}>
         <h2 className="text-xl font-semibold text-text-primary">Settings</h2>
         <p className="text-sm text-text-tertiary mt-1">
           Manage your profile, departments, and projects
         </p>
-      </div>
+      </motion.div>
 
-      <ProfileSection />
-      <DepartmentsSection />
-      <ProjectsSection />
-      <AccountSection />
-    </div>
+      <motion.div variants={sectionItemVariants}>
+        <ProfileSection />
+      </motion.div>
+      <motion.div variants={sectionItemVariants}>
+        <DailyGoalSection />
+      </motion.div>
+      <motion.div variants={sectionItemVariants}>
+        <DepartmentsSection />
+      </motion.div>
+      <motion.div variants={sectionItemVariants}>
+        <ProjectsSection />
+      </motion.div>
+      <motion.div variants={sectionItemVariants}>
+        <AccountSection />
+      </motion.div>
+    </motion.div>
   );
 }

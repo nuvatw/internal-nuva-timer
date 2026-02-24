@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useClickOutside } from "../hooks/useClickOutside";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Search,
@@ -13,19 +14,9 @@ import {
   Trash2,
 } from "lucide-react";
 import { api } from "../lib/api";
+import type { Department, Project } from "../types/models";
 
 // ─── Types ───────────────────────────────────
-
-interface Department {
-  id: string;
-  name: string;
-}
-
-interface Project {
-  id: string;
-  code: string | null;
-  name: string;
-}
 
 export interface Filters {
   departmentId: string;
@@ -57,7 +48,9 @@ const STATUS_OPTIONS = [
 ];
 
 const DURATION_OPTIONS = [
-  { value: "30", label: "30 min" },
+  { value: "10", label: "10 min" },
+  { value: "20", label: "20 min" },
+  { value: "40", label: "40 min" },
   { value: "60", label: "60 min" },
 ];
 
@@ -79,16 +72,7 @@ function FilterDropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
+  useClickOutside(ref, open, () => setOpen(false));
 
   useEffect(() => {
     if (!open) return;
@@ -429,7 +413,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Search titles & notes..."
-            className="w-full rounded-lg border border-border bg-bg pl-8 pr-8 py-1.5 text-xs text-text-primary focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none"
+            className="input w-full pl-8 pr-8 py-1.5 text-xs"
             aria-label="Search sessions"
           />
           <Search

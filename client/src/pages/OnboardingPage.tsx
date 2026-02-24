@@ -147,7 +147,7 @@ export default function OnboardingPage() {
                   <div>
                     <label
                       htmlFor="displayName"
-                      className="block text-xs font-medium text-text-tertiary uppercase tracking-wider mb-2"
+                      className="block label-caps mb-2"
                     >
                       What should we call you?
                     </label>
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
                       placeholder="Your name"
                       maxLength={50}
                       autoFocus
-                      className="w-full rounded-xl border border-border bg-bg px-4 py-3.5 text-base text-text-primary focus:border-accent focus:ring-2 focus:ring-accent-subtle outline-none transition-colors"
+                      className="input w-full rounded-xl px-4 py-3.5 text-base"
                     />
                   </div>
 
@@ -198,7 +198,7 @@ export default function OnboardingPage() {
                     type="button"
                     onClick={goNext}
                     disabled={!displayName.trim()}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                    className="btn-primary w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-semibold"
                     whileTap={tapScale}
                   >
                     Continue
@@ -262,7 +262,7 @@ export default function OnboardingPage() {
                     <motion.button
                       type="button"
                       onClick={goNext}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-text-inverted hover:bg-accent-hover transition-colors"
+                      className="btn-primary flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 font-semibold"
                       whileTap={tapScale}
                     >
                       Continue
@@ -324,7 +324,7 @@ export default function OnboardingPage() {
                       type="button"
                       onClick={handleFinish}
                       disabled={saving}
-                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3.5 text-sm font-semibold text-text-inverted hover:bg-accent-hover disabled:opacity-50 transition-colors"
+                      className="btn-primary flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-semibold"
                       whileTap={tapScale}
                     >
                       {saving ? "Setting up..." : "Start Focusing"}

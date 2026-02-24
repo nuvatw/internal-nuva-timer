@@ -13,6 +13,7 @@ import projectRoutes from "./routes/projects.js";
 import sessionRoutes from "./routes/sessions.js";
 import reportRoutes from "./routes/reports.js";
 import exportRoutes from "./routes/exports.js";
+import progressRoutes from "./routes/progress.js";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -87,6 +88,7 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/exports", exportRoutes);
+app.use("/api/progress", progressRoutes);
 
 // ─── 404 Handler ─────────────────────────────
 app.use("/api", (_req: Request, res: Response) => {

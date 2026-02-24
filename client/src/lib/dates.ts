@@ -4,7 +4,7 @@
  * Week 1 = 2026-02-02 (Monday). Weeks run Mon–Sun.
  */
 
-const TZ = "Asia/Taipei";
+export const TZ = "Asia/Taipei";
 const WEEK1_START = new Date("2026-02-02T00:00:00+08:00"); // Monday Feb 2, 2026
 
 // ─── Helpers ───────────────────────────────
@@ -144,4 +144,23 @@ export function formatMinutes(totalMinutes: number): string {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
+}
+
+/** Format a session time range like "09:15 – 09:45". */
+export function formatTimeRange(
+  startedAt: string,
+  endedAt: string | null,
+  canceledAt: string | null,
+): string {
+  const start = formatTime(startedAt);
+  const endIso = endedAt ?? canceledAt;
+  if (!endIso) return `${start} – now`;
+  return `${start} – ${formatTime(endIso)}`;
+}
+
+/** Format seconds to "MM:SS" countdown display. */
+export function formatCountdown(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }

@@ -38,7 +38,7 @@ const SummaryCards = memo(function SummaryCards({ summary, sessions }: { summary
             <Icon size={13} strokeWidth={1.75} className="text-text-tertiary" />
             <p className="text-xs text-text-tertiary uppercase tracking-wider">{label}</p>
           </div>
-          <p className="text-2xl font-bold text-text-primary tabular-nums">{value}</p>
+          <p className="text-2xl font-bold text-text-primary tabular-nums font-serif">{value}</p>
         </motion.div>
       ))}
     </motion.div>

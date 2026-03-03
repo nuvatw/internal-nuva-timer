@@ -4,7 +4,7 @@ import { ChevronRight, CalendarDays, SearchX } from "lucide-react";
 import { formatTimeRange } from "../../lib/dates";
 import { listVariants, listItemVariants } from "../../lib/motion";
 import { statusLabel } from "./constants";
-import EmptyState from "../EmptyState";
+import EmptyState from "../ui/EmptyState";
 import type { Session } from "../../types/models";
 
 // ─── Session Card ──────────────────────────
@@ -31,7 +31,7 @@ const SessionCard = memo(function SessionCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 text-xs text-text-tertiary">
             <span className="font-mono tabular-nums">
-              {formatTimeRange(session.started_at, session.ended_at, session.canceled_at)}
+              {formatTimeRange(session.started_at, session.duration_minutes, session.status)}
             </span>
             <span>&middot;</span>
             <span>

@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { Play, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Play, Clock, Timer } from "lucide-react";
 import { api } from "../../lib/api";
 import { tapScaleSmall } from "../../lib/motion";
 import type { Department, Project } from "../../types/models";
 import type { StartParams } from "../../types/timer";
 
-export default function IdleForm({ onStart }: { onStart: (p: StartParams) => Promise<void> }) {
+interface IdleFormProps {
+  onStart: (p: StartParams) => Promise<void>;
+  onSchedule: (p: StartParams, delayMinutes: number) => void;
+}
+
+export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [departmentId, setDepartmentId] = useState("");
@@ -15,50 +20,81 @@ export default function IdleForm({ onStart }: { onStart: (p: StartParams) => Pro
   const [plannedTitle, setPlannedTitle] = useState("");
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
+  const [showSchedule, setShowSchedule] = useState(false);
+  const [scheduleDelay, setScheduleDelay] = useState(5);
+  const [customDelay, setCustomDelay] = useState("");
 
   useEffect(() => {
+    const lastDeptId = localStorage.getItem("nuva-last-department");
+    const lastProjId = localStorage.getItem("nuva-last-project");
+
     api.get<Department[]>("/departments").then((data) => {
       setDepartments(data);
       if (data.length > 0 && !departmentId) {
-        const defaultDept = data.find((d) => d.name === "課程");
-        setDepartmentId(defaultDept ? defaultDept.id : data[0].id);
+        const saved = lastDeptId && data.find((d) => d.id === lastDeptId);
+        if (saved) {
+          setDepartmentId(saved.id);
+        } else {
+          const fallback = data.find((d) => d.name === "課程");
+          setDepartmentId(fallback ? fallback.id : data[0].id);
+        }
       }
     });
     api.get<Project[]>("/projects").then((data) => {
       setProjects(data);
       if (data.length > 0 && !projectId) {
-        const defaultProj = data.find((p) => p.code === "P000");
-        setProjectId(defaultProj ? defaultProj.id : data[0].id);
+        const saved = lastProjId && data.find((p) => p.id === lastProjId);
+        if (saved) {
+          setProjectId(saved.id);
+        } else {
+          const fallback = data.find((p) => p.code === "P000");
+          setProjectId(fallback ? fallback.id : data[0].id);
+        }
       }
     });
     // Mount-only: fetch reference data once
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const buildParams = (): StartParams | null => {
+    if (!departmentId || !projectId || !plannedTitle.trim()) return null;
+    const dept = departments.find((d) => d.id === departmentId)!;
+    const proj = projects.find((p) => p.id === projectId)!;
+    localStorage.setItem("nuva-last-department", departmentId);
+    localStorage.setItem("nuva-last-project", projectId);
+    return {
+      departmentId,
+      departmentName: dept.name,
+      projectId,
+      projectCode: proj.code,
+      projectName: proj.name,
+      durationMinutes: duration,
+      plannedTitle: plannedTitle.trim(),
+    };
+  };
+
   const handleStart = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!departmentId || !projectId || !plannedTitle.trim()) return;
+    const params = buildParams();
+    if (!params) return;
 
     setStarting(true);
     setError("");
 
-    const dept = departments.find((d) => d.id === departmentId)!;
-    const proj = projects.find((p) => p.id === projectId)!;
-
     try {
-      await onStart({
-        departmentId,
-        departmentName: dept.name,
-        projectId,
-        projectCode: proj.code,
-        projectName: proj.name,
-        durationMinutes: duration,
-        plannedTitle: plannedTitle.trim(),
-      });
+      await onStart(params);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start session");
       setStarting(false);
     }
+  };
+
+  const handleSchedule = () => {
+    const params = buildParams();
+    if (!params) return;
+    const delay = customDelay ? Math.min(99, Math.max(1, Number(customDelay))) : scheduleDelay;
+    if (!delay || isNaN(delay)) return;
+    onSchedule(params, delay);
   };
 
   return (
@@ -73,7 +109,7 @@ export default function IdleForm({ onStart }: { onStart: (p: StartParams) => Pro
             <Clock size={20} strokeWidth={1.75} />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-text-primary">New Session</h2>
+            <h2 className="text-lg font-serif font-semibold text-text-primary">New Session</h2>
             <p className="text-xs text-text-tertiary">Set up your focus block</p>
           </div>
         </div>
@@ -177,12 +213,84 @@ export default function IdleForm({ onStart }: { onStart: (p: StartParams) => Pro
         <motion.button
           type="submit"
           disabled={starting || !departmentId || !projectId || !plannedTitle.trim()}
-          className="btn-primary inline-flex items-center justify-center gap-2 w-full px-4 py-3.5 font-semibold"
+          className="btn-primary inline-flex items-center justify-center gap-2 w-full px-4 py-3.5 font-serif font-semibold"
           whileTap={tapScaleSmall}
         >
           <Play size={16} strokeWidth={2.5} />
           {starting ? "Starting..." : "Start Focus"}
         </motion.button>
+
+        {/* Schedule toggle */}
+        <button
+          type="button"
+          onClick={() => setShowSchedule((v) => !v)}
+          className="w-full text-center text-xs text-text-tertiary hover:text-text-secondary transition-colors py-1"
+        >
+          <span className="inline-flex items-center gap-1">
+            <Timer size={12} strokeWidth={2} />
+            {showSchedule ? "Hide scheduled start" : "Schedule start"}
+          </span>
+        </button>
+
+        <AnimatePresence>
+          {showSchedule && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="rounded-lg border border-border bg-surface p-4 space-y-3">
+                <p className="text-xs font-medium text-text-secondary">Start after</p>
+                <div className="flex gap-2">
+                  {[5, 10].map((mins) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => { setScheduleDelay(mins); setCustomDelay(""); }}
+                      className={`flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                        scheduleDelay === mins && !customDelay
+                          ? "border-accent bg-accent-muted text-accent"
+                          : "border-border bg-bg text-text-secondary hover:bg-surface"
+                      }`}
+                    >
+                      {mins} min
+                    </button>
+                  ))}
+                  <div className="flex-1 relative">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={customDelay}
+                      onChange={(e) => setCustomDelay(e.target.value)}
+                      placeholder="Custom"
+                      className={`input w-full px-3 py-2 text-sm text-center ${
+                        customDelay ? "border-accent bg-accent-muted text-accent" : ""
+                      }`}
+                    />
+                    {customDelay && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-text-tertiary pointer-events-none">
+                        min
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <motion.button
+                  type="button"
+                  onClick={handleSchedule}
+                  disabled={!departmentId || !projectId || !plannedTitle.trim()}
+                  className="inline-flex items-center justify-center gap-2 w-full rounded-lg border border-accent bg-accent-muted px-4 py-2.5 text-sm font-semibold text-accent hover:bg-accent hover:text-text-inverted disabled:opacity-50 transition-colors"
+                  whileTap={tapScaleSmall}
+                >
+                  <Timer size={14} strokeWidth={2.5} />
+                  Schedule in {customDelay || scheduleDelay} min
+                </motion.button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.form>
     </div>
   );

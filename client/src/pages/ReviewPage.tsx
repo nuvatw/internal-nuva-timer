@@ -30,7 +30,7 @@ import DailyTrendChart from "../components/review/DailyTrendChart";
 import TimeOfDayChart from "../components/review/TimeOfDayChart";
 import ProjectBarChart from "../components/review/ProjectBarChart";
 import SessionList from "../components/review/SessionList";
-import ManualEntryModal from "../components/review/ManualEntryModal";
+import ManualEntryModal from "../components/ManualEntryModal";
 
 // ─── Types ─────────────────────────────────
 
@@ -174,7 +174,7 @@ export default function ReviewPage() {
 
       {/* Header row */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-text-primary">Review</h2>
+        <h2 className="text-xl font-semibold text-text-primary font-serif">Review</h2>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowManualEntry(true)}

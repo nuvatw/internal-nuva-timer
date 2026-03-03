@@ -194,6 +194,7 @@ export default function ManualEntryModal({ onClose, onCreated }: ManualEntryModa
             <input
               id="manual-start"
               type="time"
+              lang="en-GB"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               className="input w-full px-3 py-2"
@@ -204,6 +205,7 @@ export default function ManualEntryModal({ onClose, onCreated }: ManualEntryModa
             <input
               id="manual-end"
               type="time"
+              lang="en-GB"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
               className="input w-full px-3 py-2"

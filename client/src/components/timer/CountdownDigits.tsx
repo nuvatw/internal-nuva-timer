@@ -22,7 +22,7 @@ const digitVariants = {
   exit: { y: 12, opacity: 0, filter: "blur(2px)" },
 };
 
-const digitTransition = { duration: 0.25, ease: [0.16, 1, 0.3, 1] };
+const digitTransition = { duration: 0.25, ease: [0.16, 1, 0.3, 1] as const };
 
 const Digit = memo(function Digit({
   value,
@@ -58,7 +58,7 @@ export default memo(function CountdownDigits({
 
   return (
     <span
-      className={`text-6xl font-mono font-bold tabular-nums tracking-tighter transition-colors duration-300 ${
+      className={`text-7xl font-serif font-bold tabular-nums tracking-tighter transition-colors duration-300 ${
         paused ? "text-warning" : "text-text-primary"
       }`}
     >

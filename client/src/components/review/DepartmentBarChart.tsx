@@ -59,7 +59,7 @@ const DepartmentBarChart = memo(function DepartmentBarChart({
                 border: "1px solid var(--color-border)",
                 borderRadius: 8,
                 fontSize: 12,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                boxShadow: "var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08))",
               }}
               formatter={(value: number | undefined) => [formatMinutes(value ?? 0), "Time"]}
             />

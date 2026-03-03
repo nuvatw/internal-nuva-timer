@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Check, X } from "lucide-react";
 import { api } from "../../lib/api";
-import { todayYMD, TZ } from "../../lib/dates";
+import { todayYMD } from "../../lib/dates";
 import { completionModalVariants, completionModalTransition } from "../../lib/motion";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import type { Department, Project } from "../../types/models";
@@ -183,6 +183,7 @@ export default function ManualEntryModal({ onClose, onSaved }: ManualEntryModalP
             <label className="label-caps mb-1 block">Start Time</label>
             <input
               type="time"
+              lang="en-GB"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               className="input w-full px-3 py-2 text-sm font-mono"
@@ -192,6 +193,7 @@ export default function ManualEntryModal({ onClose, onSaved }: ManualEntryModalP
             <label className="label-caps mb-1 block">End Time</label>
             <input
               type="time"
+              lang="en-GB"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
               className="input w-full px-3 py-2 text-sm font-mono"

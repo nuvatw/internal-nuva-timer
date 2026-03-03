@@ -113,6 +113,9 @@ export default function RunningState({
           className="text-center"
         >
           <CountdownDigits seconds={remainingSeconds} paused={isPaused} />
+          <p className="mt-1 text-xs text-text-tertiary">
+            Ends at {formatTime(expectedEnd)}
+          </p>
           <AnimatePresence>
             {isPaused && (
               <motion.p

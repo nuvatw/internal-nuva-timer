@@ -3,7 +3,7 @@
  * All times use Asia/Taipei timezone (UTC+8).
  */
 
-import { TZ, toYMD, addDays } from "./dates";
+import { TZ, toYMD, addDays, plannedEndIso } from "./dates";
 import type { Session } from "../types/models";
 
 // ─── Types ───────────────────────────────────
@@ -66,8 +66,10 @@ export function positionEvents(
   for (const s of sessions) {
     const sessionDate = dateOfIso(s.started_at);
 
-    // Determine end time
-    const endIso = s.ended_at ?? s.canceled_at;
+    // Always use planned end (started_at + duration_minutes) for completed/canceled sessions.
+    // For running/paused sessions, show until current time.
+    const isActive = s.status === "running" || s.status === "paused";
+    const endIso = isActive ? null : plannedEndIso(s.started_at, s.duration_minutes);
     let startMin: number;
     let endMin: number;
 

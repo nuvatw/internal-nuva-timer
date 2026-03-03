@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
-import { addDays, todayYMD } from "../../lib/dates";
+import { addDays, todayYMD, plannedEndIso } from "../../lib/dates";
 import DayColumn from "./DayColumn";
 import type { Session } from "../../types/models";
 
@@ -44,7 +44,8 @@ export default memo(function WeekView({
       // Place each session on every day it overlaps
       for (const d of days) {
         const startDate = s.started_at.slice(0, 10);
-        const endIso = s.ended_at ?? s.canceled_at;
+        const isActive = s.status === "running" || s.status === "paused";
+        const endIso = isActive ? null : plannedEndIso(s.started_at, s.duration_minutes);
         const endDate = endIso ? endIso.slice(0, 10) : today;
 
         if (d.date >= startDate && d.date <= endDate) {

@@ -146,16 +146,21 @@ export function formatMinutes(totalMinutes: number): string {
   return `${h}h ${m}m`;
 }
 
-/** Format a session time range like "09:15 – 09:45". */
+/** Format a session time range using planned end (started_at + duration_minutes). */
 export function formatTimeRange(
   startedAt: string,
-  endedAt: string | null,
-  canceledAt: string | null,
+  durationMinutes: number,
+  status?: string,
 ): string {
   const start = formatTime(startedAt);
-  const endIso = endedAt ?? canceledAt;
-  if (!endIso) return `${start} – now`;
-  return `${start} – ${formatTime(endIso)}`;
+  const isActive = status === "running" || status === "paused";
+  if (isActive) return `${start} – now`;
+  return `${start} – ${formatTime(plannedEndIso(startedAt, durationMinutes))}`;
+}
+
+/** Compute planned end ISO string from started_at + duration_minutes. */
+export function plannedEndIso(startedAt: string, durationMinutes: number): string {
+  return new Date(new Date(startedAt).getTime() + durationMinutes * 60_000).toISOString();
 }
 
 /** Format seconds to "MM:SS" countdown display. */

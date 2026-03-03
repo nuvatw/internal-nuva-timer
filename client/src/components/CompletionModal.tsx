@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, X } from "lucide-react";
-import { completionOverlayVariants, completionModalVariants, completionModalTransition } from "../lib/motion";
-import { useFocusTrap } from "../hooks/useFocusTrap";
+import Modal from "./ui/Modal";
+import Button from "./ui/Button";
 
 interface CompletionModalProps {
   plannedTitle: string;
@@ -22,7 +22,6 @@ export default function CompletionModal({
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const trapRef = useFocusTrap<HTMLDivElement>(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,31 +47,14 @@ export default function CompletionModal({
   };
 
   return (
-    <motion.div
-      ref={trapRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="completion-title"
-      variants={completionOverlayVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      transition={completionModalTransition}
+    <Modal
+      onClose={() => {}}
+      showClose={false}
     >
-      <motion.form
-        onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-xl bg-bg p-6 shadow-lg space-y-5"
-        variants={completionModalVariants}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={completionModalTransition}
-      >
-        <h3 id="completion-title" className="text-lg font-semibold text-text-primary">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <h3 className="text-lg font-serif font-semibold text-text-primary">
           Session Complete
         </h3>
-
         <div className="rounded-lg bg-surface px-3 py-2.5">
           <p className="text-xs text-text-tertiary">Planned</p>
           <p className="text-sm text-text-primary font-medium mt-0.5">
@@ -119,34 +101,34 @@ export default function CompletionModal({
 
         {/* Actual title (required when No) */}
         <AnimatePresence>
-        {!completed && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <label
-              htmlFor="actual-title"
-              className="block text-sm font-medium text-text-secondary mb-1"
+          {!completed && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
             >
-              What I actually did <span className="text-destructive">*</span>
-            </label>
-            <textarea
-              id="actual-title"
-              value={actualTitle}
-              onChange={(e) => {
-                setActualTitle(e.target.value);
-                if (error) setError("");
-              }}
-              placeholder="Describe what you worked on instead"
-              maxLength={200}
-              rows={2}
-              autoFocus
-              className="input w-full px-3 py-2 resize-none"
-            />
-          </motion.div>
-        )}
+              <label
+                htmlFor="actual-title"
+                className="block text-sm font-medium text-text-secondary mb-1"
+              >
+                What I actually did <span className="text-destructive">*</span>
+              </label>
+              <textarea
+                id="actual-title"
+                value={actualTitle}
+                onChange={(e) => {
+                  setActualTitle(e.target.value);
+                  if (error) setError("");
+                }}
+                placeholder="Describe what you worked on instead"
+                maxLength={200}
+                rows={2}
+                autoFocus
+                className="input w-full px-3 py-2 resize-none"
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
 
         {/* Notes (always optional) */}
@@ -169,14 +151,17 @@ export default function CompletionModal({
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <button
+        <Button
           type="submit"
+          variant="primary"
+          size="lg"
+          loading={saving}
           disabled={saving}
-          className="btn-primary w-full px-4 py-3 font-semibold"
+          className="w-full font-semibold"
         >
-          {saving ? "Saving..." : "Save Session"}
-        </button>
-      </motion.form>
-    </motion.div>
+          Save Session
+        </Button>
+      </form>
+    </Modal>
   );
 }

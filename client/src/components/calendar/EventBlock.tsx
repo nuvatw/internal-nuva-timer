@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { formatTime } from "../../lib/dates";
+import { formatTime, plannedEndIso } from "../../lib/dates";
 import { getDeptColor, type CalendarEvent } from "../../lib/calendar";
 
 interface EventBlockProps {
@@ -19,6 +19,8 @@ export default memo(function EventBlock({ event, hourHeight, onClick }: EventBlo
   const leftPercent = column * widthPercent;
 
   const isShort = endMinute - startMinute < 30;
+  const isActive = session.status === "running" || session.status === "paused";
+  const endDisplay = isActive ? "now" : formatTime(plannedEndIso(session.started_at, session.duration_minutes));
 
   return (
     <motion.button
@@ -33,7 +35,7 @@ export default memo(function EventBlock({ event, hourHeight, onClick }: EventBlo
       initial={{ opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      title={`${session.planned_title}\n${formatTime(session.started_at)} – ${session.ended_at ? formatTime(session.ended_at) : "now"}`}
+      title={`${session.planned_title}\n${formatTime(session.started_at)} – ${endDisplay}`}
     >
       {isShort ? (
         <p className="text-[10px] text-text-secondary truncate leading-tight">
@@ -45,7 +47,7 @@ export default memo(function EventBlock({ event, hourHeight, onClick }: EventBlo
             {session.planned_title}
           </p>
           <p className="text-[10px] text-text-tertiary font-mono tabular-nums mt-0.5">
-            {formatTime(session.started_at)} – {session.ended_at ? formatTime(session.ended_at) : "now"}
+            {formatTime(session.started_at)} – {endDisplay}
           </p>
           {height > 56 && (
             <p className="text-[10px] text-text-tertiary mt-0.5 truncate">

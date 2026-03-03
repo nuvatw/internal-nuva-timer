@@ -1,19 +1,19 @@
 // ─── Chart Colors & Labels ──────────────────
 
 export const DEPT_COLORS = [
-  "#6366f1", // indigo
-  "#10b981", // emerald
-  "#f59e0b", // amber
-  "#f43f5e", // rose
-  "#06b6d4", // cyan
-  "#a855f7", // purple
-  "#f97316", // orange
-  "#14b8a6", // teal
+  "#d97706", // amber-600
+  "#b45309", // amber-700
+  "#f59e0b", // amber-500
+  "#92400e", // amber-800
+  "#fbbf24", // amber-400
+  "#ca8a04", // yellow-600
+  "#a16207", // yellow-700
+  "#eab308", // yellow-500
 ];
 
 export const STATUS_COLORS: Record<string, string> = {
-  completed_yes: "#22c55e",
-  completed_no: "#f59e0b",
+  completed_yes: "#d97706",
+  completed_no: "#fbbf24",
   canceled: "#a3a3a3",
 };
 

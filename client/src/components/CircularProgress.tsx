@@ -17,7 +17,7 @@ interface CircularProgressProps {
 export default function CircularProgress({
   progress,
   size = 280,
-  strokeWidth = 6,
+  strokeWidth = 8,
   paused = false,
   label,
   children,
@@ -60,7 +60,7 @@ export default function CircularProgress({
             />
             <stop
               offset="100%"
-              stopColor={paused ? "var(--color-warning-light, #fbbf24)" : "var(--color-accent-light, #818cf8)"}
+              stopColor={paused ? "var(--color-warning-light, #fbbf24)" : "var(--color-accent-light, #fbbf24)"}
             />
           </linearGradient>
           {/* Blur filter for glow */}

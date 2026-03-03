@@ -108,7 +108,7 @@ export default function DailyProgress({ compact }: { compact?: boolean }) {
           <AnimatedNumber
             value={daily_focus_minutes}
             format={(n) => formatMinutes(Math.round(n))}
-            className="font-semibold text-text-primary"
+            className="font-serif font-semibold text-text-primary"
           />{" "}
           focused
         </p>
@@ -136,7 +136,7 @@ export default function DailyProgress({ compact }: { compact?: boolean }) {
           ))}
         </div>
         <p className="text-xs text-text-tertiary">
-          {daily_tomatoes}/{tomato_goal}
+          <span className="font-serif">{daily_tomatoes}/{tomato_goal}</span>
         </p>
       </div>
 

@@ -356,9 +356,9 @@ router.post("/:id/complete", validateIdParam, asyncHandler(async (req: Request, 
 
   const completionStatus = completed ? "completed_yes" : "completed_no";
 
-  // Calculate ended_at from planned duration (not when user clicked Save)
+  // Calculate ended_at from planned duration only (started_at + duration_minutes)
   const startedMs = new Date(session.started_at).getTime();
-  const endedAt = new Date(startedMs + session.duration_minutes * 60 * 1000 + session.paused_total_seconds * 1000).toISOString();
+  const endedAt = new Date(startedMs + session.duration_minutes * 60 * 1000).toISOString();
   const elapsedSeconds = session.duration_minutes * 60;
 
   const { data, error } = await supabase

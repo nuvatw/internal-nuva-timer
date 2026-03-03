@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
@@ -18,7 +18,7 @@ import {
   Flame,
   type LucideIcon,
 } from "lucide-react";
-import { pageTransition, getRouteIndex, getDirectionalPageVariants } from "../lib/motion";
+import { pageTransition, pageVariants } from "../lib/motion";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -278,22 +278,7 @@ export default function AppLayout() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const AvatarIcon = getAvatarIcon(profile?.avatar_emoji);
 
-  // ─── Direction-aware page transitions ────────
-  const prevPathRef = useRef(location.pathname);
-  const direction = useMemo(() => {
-    const prevIdx = getRouteIndex(prevPathRef.current);
-    const curIdx = getRouteIndex(location.pathname);
-    return curIdx >= prevIdx ? 1 : -1;
-  }, [location.pathname]);
-
-  useEffect(() => {
-    prevPathRef.current = location.pathname;
-  }, [location.pathname]);
-
-  const directionalVariants = useMemo(
-    () => getDirectionalPageVariants(direction),
-    [direction],
-  );
+  // ─── Page transitions (simple vertical fade) ─
 
   // Compute level info for avatar dropdown
   const levelInfo = progress
@@ -336,7 +321,7 @@ export default function AppLayout() {
         <div className="max-w-5xl mx-auto flex items-center justify-between h-14 px-4 sm:px-6">
           {/* Left: Logo + Tabs */}
           <div className="flex items-center gap-6">
-            <span className="text-base font-bold text-text-primary tracking-tight select-none">
+            <span className="text-base font-bold font-serif text-text-primary tracking-tight select-none">
               nuva
             </span>
 
@@ -434,7 +419,7 @@ export default function AppLayout() {
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              variants={directionalVariants}
+              variants={pageVariants}
               initial="initial"
               animate="animate"
               exit="exit"

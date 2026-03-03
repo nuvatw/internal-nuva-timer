@@ -24,37 +24,14 @@ export const easeOut: Transition = {
 export const pageVariants: Variants = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -4 },
+  exit: { opacity: 0 },
 };
 
 export const pageTransition: Transition = {
   duration: 0.25,
   ease: [0.16, 1, 0.3, 1],
+  exit: { duration: 0.15 },
 };
-
-// Route index map for direction-aware transitions
-const ROUTE_INDEX: Record<string, number> = {
-  "/timer": 0,
-  "/review": 1,
-  "/calendar": 2,
-  "/level": 3,
-  "/settings": 4,
-};
-
-/** Get route index for direction detection. Returns -1 for unknown routes. */
-export function getRouteIndex(path: string): number {
-  return ROUTE_INDEX[path] ?? -1;
-}
-
-/** Direction-aware page variants — slide left for forward, right for backward. */
-export function getDirectionalPageVariants(direction: number): Variants {
-  const xOffset = direction >= 0 ? 20 : -20;
-  return {
-    initial: { opacity: 0, x: xOffset },
-    animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -xOffset },
-  };
-}
 
 // ─── Modal / Overlay ─────────────────────────
 
@@ -95,7 +72,7 @@ export const completionModalTransition: Transition = {
 
 export const listVariants: Variants = {
   animate: {
-    transition: { staggerChildren: 0.04 },
+    transition: { staggerChildren: 0.06 },
   },
 };
 
@@ -128,7 +105,7 @@ export const cardGridItemVariants: Variants = {
 export const sectionStaggerVariants: Variants = {
   initial: {},
   animate: {
-    transition: { staggerChildren: 0.08 },
+    transition: { staggerChildren: 0.06 },
   },
 };
 
@@ -137,7 +114,7 @@ export const sectionItemVariants: Variants = {
   animate: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
   },
 };
 

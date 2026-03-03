@@ -14,7 +14,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { formatTime, formatTimeRange, formatFullDate, formatMinutes, toYMD } from "../lib/dates";
+import { formatTime, formatTimeRange, formatFullDate, formatMinutes, toYMD, plannedEndIso } from "../lib/dates";
 import { toast } from "../contexts/ToastContext";
 import { tapScale } from "../lib/motion";
 import type { Department, Project, Session } from "../types/models";
@@ -112,8 +112,7 @@ export default function SessionDetailPanel({
     setEditProjId(session.project_id);
     setEditDate(isoToDateInput(session.started_at));
     setEditStartTime(formatTime(session.started_at));
-    const endIso = session.ended_at ?? session.canceled_at;
-    setEditEndTime(endIso ? formatTime(endIso) : "");
+    setEditEndTime(formatTime(plannedEndIso(session.started_at, session.duration_minutes)));
     setEditDuration(session.duration_minutes);
     setEditNotes(session.notes ?? "");
 
@@ -215,7 +214,7 @@ export default function SessionDetailPanel({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-base font-semibold text-text-primary">
+              <h2 className="text-base font-semibold text-text-primary font-serif">
                 Session Details
               </h2>
               <div className="flex items-center gap-1">
@@ -318,6 +317,7 @@ export default function SessionDetailPanel({
                       <label className="block label-caps mb-1">Start</label>
                       <input
                         type="time"
+                        lang="en-GB"
                         value={editStartTime}
                         onChange={(e) => setEditStartTime(e.target.value)}
                         className="input w-full px-3 py-2"
@@ -327,6 +327,7 @@ export default function SessionDetailPanel({
                       <label className="block label-caps mb-1">End</label>
                       <input
                         type="time"
+                        lang="en-GB"
                         value={editEndTime}
                         onChange={(e) => setEditEndTime(e.target.value)}
                         className="input w-full px-3 py-2"
@@ -387,8 +388,8 @@ export default function SessionDetailPanel({
 
                   <DetailRow icon={Calendar} label="Time">
                     <div className="space-y-0.5">
-                      <p className="font-mono tabular-nums font-semibold">
-                        {formatTimeRange(session.started_at, session.ended_at, session.canceled_at)}
+                      <p className="font-mono tabular-nums font-semibold font-serif">
+                        {formatTimeRange(session.started_at, session.duration_minutes, session.status)}
                       </p>
                       <p className="text-text-secondary text-xs">
                         {formatFullDate(toYMD(new Date(session.started_at)))}
@@ -398,7 +399,7 @@ export default function SessionDetailPanel({
 
                   <DetailRow icon={Clock} label="Duration">
                     <div className="space-y-0.5">
-                      <span className="font-semibold tabular-nums">
+                      <span className="font-semibold tabular-nums font-serif">
                         {formatMinutes(session.duration_minutes)} planned
                       </span>
                       {session.elapsed_seconds != null && session.elapsed_seconds > 0 && (

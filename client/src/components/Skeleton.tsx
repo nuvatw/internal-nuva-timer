@@ -1,9 +1,10 @@
 interface SkeletonProps {
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function Skeleton({ className = "" }: SkeletonProps) {
-  return <div className={`skeleton ${className}`} aria-hidden="true" />;
+export function Skeleton({ className = "", style }: SkeletonProps) {
+  return <div className={`skeleton ${className}`} style={style} aria-hidden="true" />;
 }
 
 /** Loading skeleton that matches the ReviewPage summary + charts + session layout */

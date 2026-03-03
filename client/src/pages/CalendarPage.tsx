@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarX2, Timer } from "lucide-react";
+import { CalendarX2 } from "lucide-react";
 import { api } from "../lib/api";
 import { getDeptColor } from "../lib/calendar";
 import {
@@ -16,10 +16,10 @@ import { useHotkeys } from "../hooks/useHotkeys";
 import CalendarHeader from "../components/calendar/CalendarHeader";
 import WeekView from "../components/calendar/WeekView";
 import MonthGrid from "../components/calendar/MonthGrid";
-import EmptyState from "../components/EmptyState";
+import EmptyState from "../components/ui/EmptyState";
 import { CalendarWeekSkeleton, CalendarMonthSkeleton } from "../components/Skeleton";
 import SessionDetailPanel from "../components/SessionDetailPanel";
-import ManualEntryModal from "../components/calendar/ManualEntryModal";
+import ManualEntryModal from "../components/ManualEntryModal";
 import type { Session } from "../types/models";
 
 type CalendarView = "week" | "month";
@@ -81,7 +81,7 @@ export default function CalendarPage() {
   const [showManualEntry, setShowManualEntry] = useState(false);
 
   // Debounce navigation to prevent rapid re-fetches
-  const navTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // ─── Date Range for Fetching ─────────
 
@@ -341,7 +341,7 @@ export default function CalendarPage() {
         {showManualEntry && (
           <ManualEntryModal
             onClose={() => setShowManualEntry(false)}
-            onCreated={() => { setShowManualEntry(false); fetchSessions(); }}
+            onSaved={() => { setShowManualEntry(false); fetchSessions(); }}
           />
         )}
       </AnimatePresence>

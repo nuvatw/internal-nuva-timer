@@ -9,8 +9,6 @@ import { api } from "../lib/api";
 import { formatCountdown } from "../lib/dates";
 import {
   runningEnterVariants,
-  completionBackdropVariants,
-  completionSpringTransition,
 } from "../lib/motion";
 import { useTimer, type StartParams } from "../hooks/useTimer";
 import { useMultiTab } from "../hooks/useMultiTab";
@@ -20,6 +18,39 @@ import CountdownDigits from "../components/timer/CountdownDigits";
 import DailyProgress from "../components/DailyProgress";
 import IdleForm from "../components/timer/IdleForm";
 import RunningState from "../components/timer/RunningState";
+import ScheduledState from "../components/timer/ScheduledState";
+
+// ─── Scheduled start persistence ─────────
+const SCHEDULE_KEY = "nuva_scheduled_start";
+
+interface ScheduledData {
+  params: import("../hooks/useTimer").StartParams;
+  scheduledStartTime: string; // ISO
+}
+
+function loadSchedule(): ScheduledData | null {
+  try {
+    const raw = localStorage.getItem(SCHEDULE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as ScheduledData;
+    // Discard if already past
+    if (new Date(data.scheduledStartTime).getTime() <= Date.now()) {
+      localStorage.removeItem(SCHEDULE_KEY);
+      return null;
+    }
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function saveSchedule(data: ScheduledData | null) {
+  if (data) {
+    localStorage.setItem(SCHEDULE_KEY, JSON.stringify(data));
+  } else {
+    localStorage.removeItem(SCHEDULE_KEY);
+  }
+}
 
 // ─── Timer Page ────────────────────────────
 
@@ -40,12 +71,20 @@ export default function TimerPage() {
   const { applyGamification, refresh: refreshProgress } = useProgress();
   const { otherTabActive, notifyStateChanged } = useMultiTab(status === "running" || status === "paused");
   const [showCompletion, setShowCompletion] = useState(false);
+  const [scheduled, setScheduled] = useState<ScheduledData | null>(loadSchedule);
+
+  // Persist schedule to localStorage
+  useEffect(() => {
+    saveSchedule(scheduled);
+  }, [scheduled]);
 
   // Dynamic document title
   useDocumentTitle(
-    status === "running" || status === "paused"
-      ? `${formatCountdown(remainingSeconds)} ${status === "paused" ? "(Paused)" : ""} — Timer`
-      : "Timer"
+    scheduled
+      ? "Scheduled — Timer"
+      : status === "running" || status === "paused"
+        ? `${formatCountdown(remainingSeconds)} ${status === "paused" ? "(Paused)" : ""} — Timer`
+        : "Timer"
   );
 
   // Auto-complete: when timer finishes, play sound and show completion modal
@@ -75,6 +114,40 @@ export default function TimerPage() {
     },
     [start, playStart, notifyStateChanged]
   );
+
+  // ─── Schedule handlers ──────────────────────
+  const handleSchedule = useCallback(
+    (params: StartParams, delayMinutes: number) => {
+      const scheduledStartTime = new Date(Date.now() + delayMinutes * 60 * 1000).toISOString();
+      setScheduled({ params, scheduledStartTime });
+    },
+    []
+  );
+
+  const handleCancelSchedule = useCallback(() => {
+    setScheduled(null);
+    toast("Schedule canceled");
+  }, []);
+
+  // Countdown interval: check every second if it's time to auto-start
+  useEffect(() => {
+    if (!scheduled) return;
+
+    const check = () => {
+      const diff = new Date(scheduled.scheduledStartTime).getTime() - Date.now();
+      if (diff <= 0) {
+        const params = scheduled.params;
+        setScheduled(null);
+        handleStart(params);
+      }
+    };
+
+    // Immediate check (e.g. page reload after time passed)
+    check();
+
+    const id = setInterval(check, 1000);
+    return () => clearInterval(id);
+  }, [scheduled, handleStart]);
 
   const handleComplete = useCallback(
     async (data: { completed: boolean; actualTitle?: string; notes?: string }) => {
@@ -132,23 +205,15 @@ export default function TimerPage() {
             </CircularProgress>
           </motion.div>
         </motion.div>
-        <motion.div
-          variants={completionBackdropVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={{ duration: 0.3 }}
-        >
-          <CompletionModal
-            plannedTitle={timerState.plannedTitle}
-            onSave={handleComplete}
-          />
-        </motion.div>
+        <CompletionModal
+          plannedTitle={timerState.plannedTitle}
+          onSave={handleComplete}
+        />
       </>
     );
   }
 
-  // ─── Idle / Running states ────────────────
+  // ─── Idle / Running / Scheduled states ───
   return (
     <AnimatePresence mode="wait">
       {(status === "running" || status === "paused") ? (
@@ -175,6 +240,24 @@ export default function TimerPage() {
             onCancel={async () => { await cancel(); notifyStateChanged(); toast("Session canceled"); }}
           />
         </motion.div>
+      ) : scheduled ? (
+        <motion.div
+          key="scheduled"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12, filter: "blur(4px)" }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <ScheduledState
+            scheduledStartTime={scheduled.scheduledStartTime}
+            departmentName={scheduled.params.departmentName}
+            projectCode={scheduled.params.projectCode}
+            projectName={scheduled.params.projectName}
+            plannedTitle={scheduled.params.plannedTitle}
+            durationMinutes={scheduled.params.durationMinutes}
+            onCancel={handleCancelSchedule}
+          />
+        </motion.div>
       ) : (
         <motion.div
           key="idle"
@@ -193,7 +276,7 @@ export default function TimerPage() {
             </div>
           )}
           <DailyProgress />
-          <IdleForm onStart={handleStart} />
+          <IdleForm onStart={handleStart} onSchedule={handleSchedule} />
         </motion.div>
       )}
     </AnimatePresence>

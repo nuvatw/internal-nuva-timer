@@ -16,6 +16,7 @@ import CompletionModal from "../components/CompletionModal";
 import CircularProgress from "../components/CircularProgress";
 import CountdownDigits from "../components/timer/CountdownDigits";
 import DailyProgress from "../components/DailyProgress";
+import DepartmentDashboard from "../components/DepartmentDashboard";
 import IdleForm from "../components/timer/IdleForm";
 import RunningState from "../components/timer/RunningState";
 import ScheduledState from "../components/timer/ScheduledState";
@@ -72,6 +73,7 @@ export default function TimerPage() {
   const { otherTabActive, notifyStateChanged } = useMultiTab(status === "running" || status === "paused");
   const [showCompletion, setShowCompletion] = useState(false);
   const [scheduled, setScheduled] = useState<ScheduledData | null>(loadSchedule);
+  const [dashboardKey, setDashboardKey] = useState(0);
 
   // Persist schedule to localStorage
   useEffect(() => {
@@ -170,6 +172,7 @@ export default function TimerPage() {
       await refreshProgress();
       setShowCompletion(false);
       reset();
+      setDashboardKey((k) => k + 1);
       notifyStateChanged();
     },
     [timerState, reset, notifyStateChanged, applyGamification, refreshProgress]
@@ -276,6 +279,7 @@ export default function TimerPage() {
             </div>
           )}
           <DailyProgress />
+          <DepartmentDashboard key={dashboardKey} />
           <IdleForm onStart={handleStart} onSchedule={handleSchedule} />
         </motion.div>
       )}

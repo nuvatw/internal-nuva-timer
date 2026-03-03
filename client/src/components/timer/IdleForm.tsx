@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Clock, Timer, ChevronDown } from "lucide-react";
+import { Play, Clock, Timer } from "lucide-react";
 import { api } from "../../lib/api";
-import { tapScaleSmall } from "../../lib/motion";
+import { getDeptConfig } from "../../lib/constants";
+import { tapScaleSmall, idleFormStagger, idleFormItem } from "../../lib/motion";
 import type { Department, Project } from "../../types/models";
 import type { StartParams } from "../../types/timer";
 
@@ -11,44 +12,12 @@ interface IdleFormProps {
   onSchedule: (p: StartParams, delayMinutes: number) => void;
 }
 
-// ─── Department short-code mapping ──────────
-const DEPT_CONFIG: Record<string, { label: string; dailyHours: number }> = {
-  "課程": { label: "COU", dailyHours: 2 },
-  "行銷": { label: "MKT", dailyHours: 1 },
-  "營運": { label: "OPS", dailyHours: 1 },
-  "開發": { label: "R&D", dailyHours: 1 },
-  "社群": { label: "SOC", dailyHours: 1 },
-};
-
-function getDeptDisplay(name: string) {
-  return DEPT_CONFIG[name] ?? { label: name, dailyHours: 1 };
-}
-
-// ─── Recent projects localStorage ───────────
-const RECENT_PROJECTS_KEY = "nuva-recent-projects";
-const MAX_RECENT = 5;
-
-function getRecentProjectIds(): string[] {
-  try {
-    const raw = localStorage.getItem(RECENT_PROJECTS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function addRecentProject(id: string) {
-  const recent = getRecentProjectIds().filter((pid) => pid !== id);
-  recent.unshift(id);
-  localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
-}
-
 export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
   const [departmentId, setDepartmentId] = useState("");
   const [projectId, setProjectId] = useState("");
-  const [showAllProjects, setShowAllProjects] = useState(false);
   const [duration, setDuration] = useState(20);
   const [plannedTitle, setPlannedTitle] = useState("");
   const [starting, setStarting] = useState(false);
@@ -61,29 +30,34 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
     const lastDeptId = localStorage.getItem("nuva-last-department");
     const lastProjId = localStorage.getItem("nuva-last-project");
 
-    api.get<Department[]>("/departments").then((data) => {
-      setDepartments(data);
-      if (data.length > 0 && !departmentId) {
-        const saved = lastDeptId && data.find((d) => d.id === lastDeptId);
+    Promise.all([
+      api.get<Department[]>("/departments"),
+      api.get<Project[]>("/projects"),
+    ]).then(([deptData, projData]) => {
+      setDepartments(deptData);
+      setProjects(projData);
+
+      if (deptData.length > 0) {
+        const saved = lastDeptId && deptData.find((d) => d.id === lastDeptId);
         if (saved) {
           setDepartmentId(saved.id);
         } else {
-          const fallback = data.find((d) => d.name === "課程");
-          setDepartmentId(fallback ? fallback.id : data[0].id);
+          const fallback = deptData.find((d) => d.name === "課程");
+          setDepartmentId(fallback ? fallback.id : deptData[0].id);
         }
       }
-    });
-    api.get<Project[]>("/projects").then((data) => {
-      setProjects(data);
-      if (data.length > 0 && !projectId) {
-        const saved = lastProjId && data.find((p) => p.id === lastProjId);
+
+      if (projData.length > 0) {
+        const saved = lastProjId && projData.find((p) => p.id === lastProjId);
         if (saved) {
           setProjectId(saved.id);
         } else {
-          const fallback = data.find((p) => p.code === "P000");
-          setProjectId(fallback ? fallback.id : data[0].id);
+          const fallback = projData.find((p) => p.code === "P000");
+          setProjectId(fallback ? fallback.id : projData[0].id);
         }
       }
+
+      setLoading(false);
     });
     // Mount-only: fetch reference data once
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -92,36 +66,18 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
   // Sort departments A-Z by short label
   const sortedDepartments = useMemo(() => {
     return [...departments].sort((a, b) => {
-      const la = getDeptDisplay(a.name).label;
-      const lb = getDeptDisplay(b.name).label;
+      const la = getDeptConfig(a.name).label;
+      const lb = getDeptConfig(b.name).label;
       return la.localeCompare(lb);
     });
   }, [departments]);
 
-  // Recent projects (top 5 recently used, filtered to existing non-archived)
-  const recentProjects = useMemo(() => {
-    const recentIds = getRecentProjectIds();
-    const available = projects.filter((p) => !p.is_archived);
-    const recent: Project[] = [];
-    for (const id of recentIds) {
-      const proj = available.find((p) => p.id === id);
-      if (proj) recent.push(proj);
-      if (recent.length >= MAX_RECENT) break;
-    }
-    // If we have fewer than 5, fill with whatever's available
-    if (recent.length < MAX_RECENT) {
-      for (const p of available) {
-        if (!recent.find((r) => r.id === p.id)) {
-          recent.push(p);
-          if (recent.length >= MAX_RECENT) break;
-        }
-      }
-    }
-    return recent;
+  // All non-archived projects sorted A-Z by name
+  const sortedProjects = useMemo(() => {
+    return projects
+      .filter((p) => !p.is_archived)
+      .sort((a, b) => a.name.localeCompare(b.name, "zh-Hant"));
   }, [projects]);
-
-  // Check if currently selected project is in the recent list
-  const selectedInRecent = recentProjects.some((p) => p.id === projectId);
 
   const buildParams = (): StartParams | null => {
     if (!departmentId || !projectId || !plannedTitle.trim()) return null;
@@ -129,7 +85,6 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
     const proj = projects.find((p) => p.id === projectId)!;
     localStorage.setItem("nuva-last-department", departmentId);
     localStorage.setItem("nuva-last-project", projectId);
-    addRecentProject(projectId);
     return {
       departmentId,
       departmentName: dept.name,
@@ -165,14 +120,69 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
     onSchedule(params, delay);
   };
 
+  // ─── Loading skeleton ──────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4 lg:p-8 pb-16">
+        <div className="w-full max-w-md space-y-6">
+          {/* Header skeleton */}
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl skeleton" />
+            <div className="space-y-1.5">
+              <div className="h-5 w-28 rounded skeleton" />
+              <div className="h-3 w-36 rounded skeleton" />
+            </div>
+          </div>
+          {/* Department skeleton */}
+          <div>
+            <div className="h-3 w-20 rounded skeleton mb-2" />
+            <div className="flex gap-2">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div key={i} className="flex-1 h-12 rounded-lg skeleton" />
+              ))}
+            </div>
+          </div>
+          {/* Project skeleton */}
+          <div>
+            <div className="h-3 w-16 rounded skeleton mb-2" />
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className="h-9 rounded-lg skeleton" style={{ width: `${60 + (i % 3) * 20}px` }} />
+              ))}
+            </div>
+          </div>
+          {/* Duration skeleton */}
+          <div>
+            <div className="h-3 w-16 rounded skeleton mb-2" />
+            <div className="flex gap-3">
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="flex-1 h-10 rounded-lg skeleton" />
+              ))}
+            </div>
+          </div>
+          {/* Goal skeleton */}
+          <div>
+            <div className="h-3 w-10 rounded skeleton mb-1.5" />
+            <div className="h-12 w-full rounded-md skeleton" />
+          </div>
+          {/* Button skeleton */}
+          <div className="h-12 w-full rounded-md skeleton" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center justify-center p-4 lg:p-8 pb-16">
       <motion.form
         onSubmit={handleStart}
         className="w-full max-w-md space-y-6"
+        variants={idleFormStagger}
+        initial="initial"
+        animate="animate"
       >
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <motion.div className="flex items-center gap-3" variants={idleFormItem}>
           <div className="h-10 w-10 rounded-xl bg-accent-muted flex items-center justify-center text-accent">
             <Clock size={20} strokeWidth={1.75} />
           </div>
@@ -180,14 +190,14 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
             <h2 className="text-lg font-serif font-semibold text-text-primary">New Session</h2>
             <p className="text-xs text-text-tertiary">Set up your focus block</p>
           </div>
-        </div>
+        </motion.div>
 
         {/* Department — quick buttons A-Z */}
-        <div>
+        <motion.div variants={idleFormItem}>
           <label className="block label-caps mb-2">Department</label>
           <div className="flex gap-2">
             {sortedDepartments.map((d) => {
-              const cfg = getDeptDisplay(d.name);
+              const cfg = getDeptConfig(d.name);
               const selected = departmentId === d.id;
               return (
                 <button
@@ -208,81 +218,34 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
               );
             })}
           </div>
-        </div>
+        </motion.div>
 
-        {/* Project — recent 5 + Other */}
-        <div>
+        {/* Project — all projects A-Z */}
+        <motion.div variants={idleFormItem}>
           <label className="block label-caps mb-2">Project</label>
           <div className="flex flex-wrap gap-2">
-            {recentProjects.map((p) => {
+            {sortedProjects.map((p) => {
               const selected = projectId === p.id;
-              const label = p.code ? `${p.code}` : p.name;
               return (
                 <button
                   key={p.id}
                   type="button"
-                  onClick={() => {
-                    setProjectId(p.id);
-                    setShowAllProjects(false);
-                  }}
+                  onClick={() => setProjectId(p.id)}
                   className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
-                    selected && !showAllProjects
+                    selected
                       ? "border-accent bg-accent-muted text-accent"
                       : "border-border bg-bg text-text-secondary hover:bg-surface"
                   }`}
-                  title={p.code ? `${p.code} — ${p.name}` : p.name}
                 >
-                  {label}
+                  {p.name}
                 </button>
               );
             })}
-            {/* Other button */}
-            <button
-              type="button"
-              onClick={() => setShowAllProjects((v) => !v)}
-              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1 ${
-                showAllProjects || (!selectedInRecent && projectId)
-                  ? "border-accent bg-accent-muted text-accent"
-                  : "border-border bg-bg text-text-secondary hover:bg-surface"
-              }`}
-            >
-              Other
-              <ChevronDown size={14} className={`transition-transform ${showAllProjects ? "rotate-180" : ""}`} />
-            </button>
           </div>
-          {/* Full project dropdown (shown when "Other" is clicked) */}
-          <AnimatePresence>
-            {showAllProjects && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
-                className="overflow-hidden"
-              >
-                <select
-                  value={projectId}
-                  onChange={(e) => {
-                    setProjectId(e.target.value);
-                    setShowAllProjects(false);
-                  }}
-                  className="input w-full px-3 py-2.5 mt-2"
-                >
-                  {projects
-                    .filter((p) => !p.is_archived)
-                    .map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.code ? `${p.code} — ` : ""}{p.name}
-                      </option>
-                    ))}
-                </select>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        </motion.div>
 
         {/* Duration */}
-        <div>
+        <motion.div variants={idleFormItem}>
           <label className="block label-caps mb-2">
             Duration
           </label>
@@ -320,10 +283,10 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
               <span>60 min</span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Planned Goal */}
-        <div>
+        <motion.div variants={idleFormItem}>
           <label htmlFor="planned-title" className="block label-caps mb-1.5">
             Goal
           </label>
@@ -337,19 +300,21 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
             maxLength={200}
             className="input w-full px-3 py-3"
           />
-        </div>
+        </motion.div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <motion.button
-          type="submit"
-          disabled={starting || !departmentId || !projectId || !plannedTitle.trim()}
-          className="btn-primary inline-flex items-center justify-center gap-2 w-full px-4 py-3.5 font-serif font-semibold"
-          whileTap={tapScaleSmall}
-        >
-          <Play size={16} strokeWidth={2.5} />
-          {starting ? "Starting..." : "Start Focus"}
-        </motion.button>
+        <motion.div variants={idleFormItem}>
+          <motion.button
+            type="submit"
+            disabled={starting || !departmentId || !projectId || !plannedTitle.trim()}
+            className="btn-primary inline-flex items-center justify-center gap-2 w-full px-4 py-3.5 font-serif font-semibold"
+            whileTap={tapScaleSmall}
+          >
+            <Play size={16} strokeWidth={2.5} />
+            {starting ? "Starting..." : "Start Focus"}
+          </motion.button>
+        </motion.div>
 
         {/* Schedule toggle */}
         <button
@@ -369,7 +334,7 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
               className="overflow-hidden"
             >
               <div className="rounded-lg border border-border bg-surface p-4 space-y-3">

@@ -4,18 +4,18 @@ import type { Variants, Transition } from "framer-motion";
 
 export const spring: Transition = {
   type: "spring",
-  stiffness: 500,
-  damping: 30,
+  stiffness: 260,
+  damping: 22,
 };
 
 export const springGentle: Transition = {
   type: "spring",
-  stiffness: 300,
-  damping: 25,
+  stiffness: 180,
+  damping: 20,
 };
 
 export const easeOut: Transition = {
-  duration: 0.2,
+  duration: 0.45,
   ease: [0.16, 1, 0.3, 1],
 };
 
@@ -28,9 +28,9 @@ export const pageVariants: Variants = {
 };
 
 export const pageTransition = {
-  duration: 0.25,
+  duration: 0.5,
   ease: [0.16, 1, 0.3, 1] as const,
-  exit: { duration: 0.15 },
+  exit: { duration: 0.3 },
 };
 
 // ─── Modal / Overlay ─────────────────────────
@@ -48,7 +48,7 @@ export const modalVariants: Variants = {
 };
 
 export const modalTransition: Transition = {
-  duration: 0.2,
+  duration: 0.4,
   ease: [0.16, 1, 0.3, 1],
 };
 
@@ -64,7 +64,7 @@ export const completionModalVariants: Variants = {
 };
 
 export const completionModalTransition: Transition = {
-  duration: 0.35,
+  duration: 0.6,
   ease: [0.16, 1, 0.3, 1],
 };
 
@@ -72,7 +72,7 @@ export const completionModalTransition: Transition = {
 
 export const listVariants: Variants = {
   animate: {
-    transition: { staggerChildren: 0.06 },
+    transition: { staggerChildren: 0.12 },
   },
 };
 
@@ -86,7 +86,7 @@ export const listItemVariants: Variants = {
 export const cardGridVariants: Variants = {
   initial: {},
   animate: {
-    transition: { staggerChildren: 0.06 },
+    transition: { staggerChildren: 0.12 },
   },
 };
 
@@ -96,7 +96,7 @@ export const cardGridItemVariants: Variants = {
     opacity: 1,
     scale: 1,
     y: 0,
-    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -105,7 +105,7 @@ export const cardGridItemVariants: Variants = {
 export const sectionStaggerVariants: Variants = {
   initial: {},
   animate: {
-    transition: { staggerChildren: 0.06 },
+    transition: { staggerChildren: 0.12 },
   },
 };
 
@@ -114,7 +114,7 @@ export const sectionItemVariants: Variants = {
   animate: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -125,7 +125,7 @@ export const chartEnterVariants: Variants = {
   animate: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.7, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -147,7 +147,7 @@ export const tapScaleSmall = { scale: 0.95 };
 /** Idle form fields stagger-fade out (top-down). */
 export const idleExitVariants: Variants = {
   animate: {},
-  exit: { transition: { staggerChildren: 0.04, staggerDirection: 1 } },
+  exit: { transition: { staggerChildren: 0.08, staggerDirection: 1 } },
 };
 
 export const idleExitChildVariants: Variants = {
@@ -156,7 +156,7 @@ export const idleExitChildVariants: Variants = {
     opacity: 0,
     y: 10,
     filter: "blur(2px)",
-    transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -165,12 +165,12 @@ export const runningEnterVariants: Variants = {
   initial: { opacity: 0 },
   animate: {
     opacity: 1,
-    transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.55, ease: [0.16, 1, 0.3, 1] },
   },
   exit: {
     opacity: 0,
     scale: 0.97,
-    transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] },
+    transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
   },
 };
 
@@ -183,6 +183,42 @@ export const completionBackdropVariants: Variants = {
 
 export const completionSpringTransition: Transition = {
   type: "spring",
-  stiffness: 280,
-  damping: 22,
+  stiffness: 160,
+  damping: 18,
+};
+
+// ─── Dashboard Stagger ──────────────────────
+
+export const dashboardStaggerVariants: Variants = {
+  initial: {},
+  animate: {
+    transition: { staggerChildren: 0.12, delayChildren: 0.2 },
+  },
+};
+
+export const dashboardItemVariants: Variants = {
+  initial: { opacity: 0, y: 12 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+  },
+};
+
+// ─── Idle Form Stagger ──────────────────────
+
+export const idleFormStagger: Variants = {
+  initial: {},
+  animate: {
+    transition: { staggerChildren: 0.1, delayChildren: 0.15 },
+  },
+};
+
+export const idleFormItem: Variants = {
+  initial: { opacity: 0, y: 10 },
+  animate: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] },
+  },
 };

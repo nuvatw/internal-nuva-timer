@@ -260,7 +260,7 @@ button:disabled,
     var(--color-surface-raised) 63%
   );
   background-size: 400% 100%;
-  animation: skeleton-shimmer 2.5s ease-in-out infinite;
+  animation: skeleton-shimmer 3s ease-in-out infinite;
   border-radius: var(--radius-md);
 }
 
@@ -276,7 +276,7 @@ button:disabled,
 }
 
 .animate-bar-grow {
-  animation: bar-grow 800ms var(--ease-out-expo) both;
+  animation: bar-grow 1400ms var(--ease-out-expo) both;
   transform-origin: bottom;
 }
 
@@ -294,7 +294,7 @@ button:disabled,
 }
 
 .timer-ring-active {
-  animation: timer-breathe 4s ease-in-out infinite;
+  animation: timer-breathe 5s ease-in-out infinite;
 }
 
 /* ─── Completion ring fill ───────────────────── */

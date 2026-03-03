@@ -15,6 +15,7 @@ export declare function xpForLevel(level: number): number;
 export declare function levelFromXp(totalXp: number): number;
 /**
  * Level title based on current level.
+ * Derived from LEVEL_TIERS to keep a single source of truth.
  */
 export declare function getLevelTitle(level: number): string;
 /**

@@ -27,9 +27,9 @@ export const pageVariants: Variants = {
   exit: { opacity: 0 },
 };
 
-export const pageTransition: Transition = {
+export const pageTransition = {
   duration: 0.25,
-  ease: [0.16, 1, 0.3, 1],
+  ease: [0.16, 1, 0.3, 1] as const,
   exit: { duration: 0.15 },
 };
 

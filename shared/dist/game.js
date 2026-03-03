@@ -32,23 +32,11 @@ export function levelFromXp(totalXp) {
 }
 /**
  * Level title based on current level.
+ * Derived from LEVEL_TIERS to keep a single source of truth.
  */
 export function getLevelTitle(level) {
-    if (level <= 5)
-        return "Seedling";
-    if (level <= 10)
-        return "Sprout";
-    if (level <= 15)
-        return "Sapling";
-    if (level <= 20)
-        return "Tree";
-    if (level <= 30)
-        return "Grove";
-    if (level <= 40)
-        return "Forest";
-    if (level <= 50)
-        return "Ancient Forest";
-    return "Mythic";
+    const tier = LEVEL_TIERS.find((t) => level >= t.minLevel && level <= t.maxLevel);
+    return tier?.name ?? LEVEL_TIERS[LEVEL_TIERS.length - 1].name;
 }
 // ─── XP Multiplier ──────────────────────────
 /**

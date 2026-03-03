@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build --workspace=client",
+  "buildCommand": "cd ../shared && npx tsc && cd ../client && npx vite build",
   "outputDirectory": "dist",
-  "installCommand": "npm install",
+  "installCommand": "cd .. && npm install",
   "framework": null,
   "rewrites": [
     { "source": "/api/:path*", "destination": "https://internal-nuva-timer.onrender.com/api/:path*" },

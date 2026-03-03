@@ -169,11 +169,9 @@ router.get("/sessions.csv", validate_js_1.validateDateParams, (0, validate_js_1.
     // Session rows
     for (const s of sessions) {
         const proj = s.projects;
-        const endTime = s.ended_at
-            ? formatTimeTZ(s.ended_at)
-            : s.canceled_at
-                ? `${formatTimeTZ(s.canceled_at)} (canceled, ${formatElapsed(s.elapsed_seconds)})`
-                : "";
+        // Always use planned end: started_at + duration_minutes
+        const plannedEnd = new Date(new Date(s.started_at).getTime() + s.duration_minutes * 60_000).toISOString();
+        const endTime = formatTimeTZ(plannedEnd);
         rows.push({
             Date: formatDateTZ(s.started_at),
             Start: formatTimeTZ(s.started_at),

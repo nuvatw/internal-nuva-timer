@@ -4,14 +4,17 @@ const API_BASE = "/api";
 const MAX_RETRIES = 2;
 const RETRY_BASE_MS = 500;
 
-async function getAuthHeaders(): Promise<Record<string, string>> {
+async function getAuthHeaders(includeContentType = false): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) throw new Error("Not authenticated");
-  return {
+  const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
   };
+  if (includeContentType) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
 }
 
 function isRetryable(status: number): boolean {
@@ -30,7 +33,8 @@ function handle401(): never {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const headers = await getAuthHeaders();
+  const hasBody = options.body !== undefined;
+  const headers = await getAuthHeaders(hasBody);
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -74,7 +78,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 async function download(path: string): Promise<void> {
-  const headers = await getAuthHeaders();
+  const headers = await getAuthHeaders(false);
   const res = await fetch(`${API_BASE}${path}`, { headers });
 
   if (res.status === 401) handle401();
@@ -101,7 +105,7 @@ async function download(path: string): Promise<void> {
 }
 
 async function del(path: string): Promise<void> {
-  const headers = await getAuthHeaders();
+  const headers = await getAuthHeaders(false);
   const res = await fetch(`${API_BASE}${path}`, { method: "DELETE", headers });
   if (res.status === 401) handle401();
   if (!res.ok) {

@@ -100,12 +100,12 @@ router.get("/active", (0, validate_js_1.asyncHandler)(async (req, res) => {
         .eq("user_id", userId)
         .in("status", ["running", "paused"])
         .limit(1)
-        .single();
-    if (error || !data) {
+        .maybeSingle();
+    if (error) {
         res.json(null);
         return;
     }
-    res.json(data);
+    res.json(data ?? null);
 }));
 // POST /api/sessions/manual — add a past session manually
 router.post("/manual", (0, validate_js_1.asyncHandler)(async (req, res) => {
@@ -319,9 +319,9 @@ router.post("/:id/complete", validate_js_1.validateIdParam, (0, validate_js_1.as
         return;
     }
     const completionStatus = completed ? "completed_yes" : "completed_no";
-    // Calculate ended_at from planned duration (not when user clicked Save)
+    // Calculate ended_at from planned duration only (started_at + duration_minutes)
     const startedMs = new Date(session.started_at).getTime();
-    const endedAt = new Date(startedMs + session.duration_minutes * 60 * 1000 + session.paused_total_seconds * 1000).toISOString();
+    const endedAt = new Date(startedMs + session.duration_minutes * 60 * 1000).toISOString();
     const elapsedSeconds = session.duration_minutes * 60;
     const { data, error } = await supabase_js_1.supabase
         .from("sessions")

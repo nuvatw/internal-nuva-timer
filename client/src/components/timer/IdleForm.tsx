@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, Clock, Timer } from "lucide-react";
+import { Play, Clock, Timer, ChevronDown } from "lucide-react";
 import { api } from "../../lib/api";
 import { tapScaleSmall } from "../../lib/motion";
 import type { Department, Project } from "../../types/models";
@@ -11,11 +11,44 @@ interface IdleFormProps {
   onSchedule: (p: StartParams, delayMinutes: number) => void;
 }
 
+// ─── Department short-code mapping ──────────
+const DEPT_CONFIG: Record<string, { label: string; dailyHours: number }> = {
+  "課程": { label: "COU", dailyHours: 2 },
+  "行銷": { label: "MKT", dailyHours: 1 },
+  "營運": { label: "OPS", dailyHours: 1 },
+  "開發": { label: "R&D", dailyHours: 1 },
+  "社群": { label: "SOC", dailyHours: 1 },
+};
+
+function getDeptDisplay(name: string) {
+  return DEPT_CONFIG[name] ?? { label: name, dailyHours: 1 };
+}
+
+// ─── Recent projects localStorage ───────────
+const RECENT_PROJECTS_KEY = "nuva-recent-projects";
+const MAX_RECENT = 5;
+
+function getRecentProjectIds(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_PROJECTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addRecentProject(id: string) {
+  const recent = getRecentProjectIds().filter((pid) => pid !== id);
+  recent.unshift(id);
+  localStorage.setItem(RECENT_PROJECTS_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)));
+}
+
 export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [departmentId, setDepartmentId] = useState("");
   const [projectId, setProjectId] = useState("");
+  const [showAllProjects, setShowAllProjects] = useState(false);
   const [duration, setDuration] = useState(20);
   const [plannedTitle, setPlannedTitle] = useState("");
   const [starting, setStarting] = useState(false);
@@ -56,12 +89,47 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sort departments A-Z by short label
+  const sortedDepartments = useMemo(() => {
+    return [...departments].sort((a, b) => {
+      const la = getDeptDisplay(a.name).label;
+      const lb = getDeptDisplay(b.name).label;
+      return la.localeCompare(lb);
+    });
+  }, [departments]);
+
+  // Recent projects (top 5 recently used, filtered to existing non-archived)
+  const recentProjects = useMemo(() => {
+    const recentIds = getRecentProjectIds();
+    const available = projects.filter((p) => !p.is_archived);
+    const recent: Project[] = [];
+    for (const id of recentIds) {
+      const proj = available.find((p) => p.id === id);
+      if (proj) recent.push(proj);
+      if (recent.length >= MAX_RECENT) break;
+    }
+    // If we have fewer than 5, fill with whatever's available
+    if (recent.length < MAX_RECENT) {
+      for (const p of available) {
+        if (!recent.find((r) => r.id === p.id)) {
+          recent.push(p);
+          if (recent.length >= MAX_RECENT) break;
+        }
+      }
+    }
+    return recent;
+  }, [projects]);
+
+  // Check if currently selected project is in the recent list
+  const selectedInRecent = recentProjects.some((p) => p.id === projectId);
+
   const buildParams = (): StartParams | null => {
     if (!departmentId || !projectId || !plannedTitle.trim()) return null;
     const dept = departments.find((d) => d.id === departmentId)!;
     const proj = projects.find((p) => p.id === projectId)!;
     localStorage.setItem("nuva-last-department", departmentId);
     localStorage.setItem("nuva-last-project", projectId);
+    addRecentProject(projectId);
     return {
       departmentId,
       departmentName: dept.name,
@@ -114,40 +182,103 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
           </div>
         </div>
 
-        {/* Department + Project row */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="department" className="block label-caps mb-1.5">
-              Department
-            </label>
-            <select
-              id="department"
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className="input w-full px-3 py-2.5"
-            >
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
+        {/* Department — quick buttons A-Z */}
+        <div>
+          <label className="block label-caps mb-2">Department</label>
+          <div className="flex gap-2">
+            {sortedDepartments.map((d) => {
+              const cfg = getDeptDisplay(d.name);
+              const selected = departmentId === d.id;
+              return (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => setDepartmentId(d.id)}
+                  className={`flex-1 rounded-lg border px-2 py-2.5 text-center transition-colors ${
+                    selected
+                      ? "border-accent bg-accent-muted text-accent"
+                      : "border-border bg-bg text-text-secondary hover:bg-surface"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold leading-tight">{cfg.label}</span>
+                  <span className={`block text-[10px] leading-tight mt-0.5 ${selected ? "text-accent/70" : "text-text-tertiary"}`}>
+                    {cfg.dailyHours}h / day
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <div>
-            <label htmlFor="project" className="block label-caps mb-1.5">
-              Project
-            </label>
-            <select
-              id="project"
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="input w-full px-3 py-2.5"
+        </div>
+
+        {/* Project — recent 5 + Other */}
+        <div>
+          <label className="block label-caps mb-2">Project</label>
+          <div className="flex flex-wrap gap-2">
+            {recentProjects.map((p) => {
+              const selected = projectId === p.id;
+              const label = p.code ? `${p.code}` : p.name;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => {
+                    setProjectId(p.id);
+                    setShowAllProjects(false);
+                  }}
+                  className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                    selected && !showAllProjects
+                      ? "border-accent bg-accent-muted text-accent"
+                      : "border-border bg-bg text-text-secondary hover:bg-surface"
+                  }`}
+                  title={p.code ? `${p.code} — ${p.name}` : p.name}
+                >
+                  {label}
+                </button>
+              );
+            })}
+            {/* Other button */}
+            <button
+              type="button"
+              onClick={() => setShowAllProjects((v) => !v)}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors inline-flex items-center gap-1 ${
+                showAllProjects || (!selectedInRecent && projectId)
+                  ? "border-accent bg-accent-muted text-accent"
+                  : "border-border bg-bg text-text-secondary hover:bg-surface"
+              }`}
             >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code ? `${p.code} — ` : ""}{p.name}
-                </option>
-              ))}
-            </select>
+              Other
+              <ChevronDown size={14} className={`transition-transform ${showAllProjects ? "rotate-180" : ""}`} />
+            </button>
           </div>
+          {/* Full project dropdown (shown when "Other" is clicked) */}
+          <AnimatePresence>
+            {showAllProjects && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.15, ease: [0.16, 1, 0.3, 1] }}
+                className="overflow-hidden"
+              >
+                <select
+                  value={projectId}
+                  onChange={(e) => {
+                    setProjectId(e.target.value);
+                    setShowAllProjects(false);
+                  }}
+                  className="input w-full px-3 py-2.5 mt-2"
+                >
+                  {projects
+                    .filter((p) => !p.is_archived)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.code ? `${p.code} — ` : ""}{p.name}
+                      </option>
+                    ))}
+                </select>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Duration */}

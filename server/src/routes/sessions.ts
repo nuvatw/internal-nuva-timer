@@ -112,14 +112,14 @@ router.get("/active", asyncHandler(async (req: Request, res: Response) => {
     .eq("user_id", userId)
     .in("status", ["running", "paused"])
     .limit(1)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) {
+  if (error) {
     res.json(null);
     return;
   }
 
-  res.json(data);
+  res.json(data ?? null);
 }));
 
 // POST /api/sessions/manual — add a past session manually

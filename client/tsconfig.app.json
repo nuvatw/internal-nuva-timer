@@ -8,6 +8,11 @@
     "types": ["vite/client"],
     "skipLibCheck": true,
 
+    /* Shared workspace resolution (bypasses npm symlink) */
+    "paths": {
+      "@nuva/shared/*": ["../shared/dist/*"]
+    },
+
     /* Bundler mode */
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,

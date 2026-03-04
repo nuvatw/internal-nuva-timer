@@ -270,6 +270,10 @@ export default function TimerPage() {
             onResume={resume}
             onCancel={async () => { await cancel(); notifyStateChanged(); toast("Session canceled"); }}
           />
+          <DepartmentTodos
+            activeSessionId={timerState?.sessionId ?? null}
+            onSelectTodo={handleSelectTodo}
+          />
         </motion.div>
       ) : scheduled ? (
         <motion.div

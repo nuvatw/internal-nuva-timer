@@ -59,6 +59,20 @@ export interface ProgressData {
   total_focus_minutes: number;
 }
 
+export interface Todo {
+  id: string;
+  department_id: string;
+  title: string;
+  due_date: string | null;
+  urgency: number; // 1-3
+  position: number;
+  is_completed: boolean;
+  completed_at: string | null;
+  linked_session_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GamificationResult {
   xp_gained: number;
   new_tomatoes: number;

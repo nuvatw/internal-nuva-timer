@@ -6,6 +6,7 @@ import { toast } from "../contexts/ToastContext";
 import { useSfx } from "../contexts/SfxContext";
 import { useProgress, type GamificationResult } from "../contexts/ProgressContext";
 import { api } from "../lib/api";
+import { useTodos } from "../contexts/TodoContext";
 import { formatCountdown } from "../lib/dates";
 import {
   runningEnterVariants,
@@ -17,6 +18,7 @@ import CircularProgress from "../components/CircularProgress";
 import CountdownDigits from "../components/timer/CountdownDigits";
 import DailyProgress from "../components/DailyProgress";
 import DepartmentDashboard from "../components/DepartmentDashboard";
+import DepartmentTodos from "../components/todos/DepartmentTodos";
 import IdleForm from "../components/timer/IdleForm";
 import RunningState from "../components/timer/RunningState";
 import ScheduledState from "../components/timer/ScheduledState";
@@ -68,12 +70,14 @@ export default function TimerPage() {
     reset,
   } = useTimer();
 
-  const { playStart, playComplete } = useSfx();
+  const { playStart, playAlarm, stopAlarm } = useSfx();
   const { applyGamification, refresh: refreshProgress } = useProgress();
   const { otherTabActive, notifyStateChanged } = useMultiTab(status === "running" || status === "paused");
+  const { refresh: refreshTodos, selectTodo, selectedTodo } = useTodos();
   const [showCompletion, setShowCompletion] = useState(false);
   const [scheduled, setScheduled] = useState<ScheduledData | null>(loadSchedule);
   const [dashboardKey, setDashboardKey] = useState(0);
+  const idleFormRef = useRef<HTMLDivElement>(null);
 
   // Persist schedule to localStorage
   useEffect(() => {
@@ -89,15 +93,15 @@ export default function TimerPage() {
         : "Timer"
   );
 
-  // Auto-complete: when timer finishes, play sound and show completion modal
+  // Auto-complete: when timer finishes, play alarm loop and show completion modal
   const prevStatusRef = useRef(status);
   useEffect(() => {
     if (status === "finished" && prevStatusRef.current !== "finished") {
-      playComplete();
+      playAlarm();
       setShowCompletion(true);
     }
     prevStatusRef.current = status;
-  }, [status, playComplete]);
+  }, [status, playAlarm]);
 
   // Handle page reload while in finished state
   useEffect(() => {
@@ -108,13 +112,25 @@ export default function TimerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleSelectTodo = useCallback(
+    (todo: import("../types/models").Todo) => {
+      selectTodo(todo);
+      // Scroll to idle form
+      setTimeout(() => {
+        idleFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
+    },
+    [selectTodo]
+  );
+
   const handleStart = useCallback(
     async (params: StartParams) => {
       await start(params);
+      selectTodo(null); // Clear selection after start
       playStart();
       notifyStateChanged();
     },
-    [start, playStart, notifyStateChanged]
+    [start, playStart, notifyStateChanged, selectTodo]
   );
 
   // ─── Schedule handlers ──────────────────────
@@ -132,15 +148,24 @@ export default function TimerPage() {
   }, []);
 
   // Countdown interval: check every second if it's time to auto-start
+  const scheduledStartingRef = useRef(false);
   useEffect(() => {
-    if (!scheduled) return;
+    if (!scheduled || scheduledStartingRef.current) return;
 
-    const check = () => {
+    const check = async () => {
+      if (scheduledStartingRef.current) return;
       const diff = new Date(scheduled.scheduledStartTime).getTime() - Date.now();
       if (diff <= 0) {
-        const params = scheduled.params;
+        scheduledStartingRef.current = true;
+        try {
+          await handleStart(scheduled.params);
+        } catch {
+          scheduledStartingRef.current = false;
+          return;
+        }
+        // Clear schedule only AFTER start succeeds — avoids flash back to idle
         setScheduled(null);
-        handleStart(params);
+        scheduledStartingRef.current = false;
       }
     };
 
@@ -164,18 +189,21 @@ export default function TimerPage() {
         },
       );
 
+      stopAlarm();
+
       if (result.gamification) {
         applyGamification(result.gamification);
       }
       toast.success(data.completed ? "Session completed" : "Session saved");
 
       await refreshProgress();
+      await refreshTodos();
       setShowCompletion(false);
       reset();
       setDashboardKey((k) => k + 1);
       notifyStateChanged();
     },
-    [timerState, reset, notifyStateChanged, applyGamification, refreshProgress]
+    [timerState, reset, notifyStateChanged, applyGamification, refreshProgress, stopAlarm, refreshTodos]
   );
 
   // ─── Finished state with CompletionModal ──
@@ -280,7 +308,17 @@ export default function TimerPage() {
           )}
           <DailyProgress />
           <DepartmentDashboard key={dashboardKey} />
-          <IdleForm onStart={handleStart} onSchedule={handleSchedule} />
+          <DepartmentTodos
+            activeSessionId={timerState?.sessionId ?? null}
+            onSelectTodo={handleSelectTodo}
+          />
+          <div ref={idleFormRef}>
+            <IdleForm
+              onStart={handleStart}
+              onSchedule={handleSchedule}
+              prefill={selectedTodo ? { departmentId: selectedTodo.department_id, plannedTitle: selectedTodo.title, todoId: selectedTodo.id } : undefined}
+            />
+          </div>
         </motion.div>
       )}
     </AnimatePresence>

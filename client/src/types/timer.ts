@@ -52,4 +52,5 @@ export interface StartParams {
   projectName: string;
   durationMinutes: number;
   plannedTitle: string;
+  todoId?: string;
 }

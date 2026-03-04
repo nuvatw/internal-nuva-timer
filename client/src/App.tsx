@@ -13,6 +13,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import { ToastProvider } from "./contexts/ToastContext";
 import { SfxProvider } from "./contexts/SfxContext";
 import { ProgressProvider } from "./contexts/ProgressContext";
+import { TodoProvider } from "./contexts/TodoContext";
 import { useReducedMotion } from "./hooks/useReducedMotion";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AppLayout from "./components/AppLayout";
@@ -130,7 +131,9 @@ export default function App() {
                 <ToastProvider>
                   <SfxProvider>
                     <ProgressProvider>
-                      <AppRoutes />
+                      <TodoProvider>
+                        <AppRoutes />
+                      </TodoProvider>
                     </ProgressProvider>
                   </SfxProvider>
                 </ToastProvider>

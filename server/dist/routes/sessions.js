@@ -5,26 +5,38 @@ const supabase_js_1 = require("../supabase.js");
 const validate_js_1 = require("../middleware/validate.js");
 const errors_js_1 = require("../middleware/errors.js");
 const gamification_js_1 = require("../lib/gamification.js");
+const timezone_js_1 = require("../lib/timezone.js");
 const router = (0, express_1.Router)();
-/** Fetch a session owned by the user, or send 404 and return null. */
+/** Fetch a session owned by the user, or send 404/500 and return null. */
 async function findSession(req, res) {
     const id = req.params.id;
     const userId = req.userId;
-    const { data } = await supabase_js_1.supabase
+    const { data, error } = await supabase_js_1.supabase
         .from("sessions")
         .select("*")
         .eq("id", id)
         .eq("user_id", userId)
         .single();
+    if (error) {
+        // PGRST116 = row not found
+        if (error.code === "PGRST116") {
+            res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+        }
+        else {
+            (0, errors_js_1.dbError)(res, error);
+        }
+        return null;
+    }
     if (!data) {
         res.status(404).json({ error: { code: "NOT_FOUND", message: "Session not found" } });
+        return null;
     }
     return data;
 }
 // POST /api/sessions/start
 router.post("/start", (0, validate_js_1.asyncHandler)(async (req, res) => {
     const userId = req.userId;
-    const { department_id, project_id, duration_minutes, planned_title } = req.body;
+    const { department_id, project_id, duration_minutes, planned_title, todo_id } = req.body;
     // Validate duration (integer 5–60)
     if (!Number.isInteger(duration_minutes) || duration_minutes < 5 || duration_minutes > 60) {
         res.status(400).json({ error: { code: "VALIDATION_ERROR", message: "duration_minutes must be an integer between 5 and 60" } });
@@ -88,6 +100,14 @@ router.post("/start", (0, validate_js_1.asyncHandler)(async (req, res) => {
     if (error) {
         (0, errors_js_1.dbError)(res, error);
         return;
+    }
+    // Link todo to session if todo_id provided
+    if (todo_id && data) {
+        await supabase_js_1.supabase
+            .from("todos")
+            .update({ linked_session_id: data.id, updated_at: new Date().toISOString() })
+            .eq("id", todo_id)
+            .eq("user_id", userId);
     }
     res.status(201).json(data);
 }));
@@ -197,7 +217,7 @@ router.post("/manual", (0, validate_js_1.asyncHandler)(async (req, res) => {
     // Award XP (non-fatal on failure)
     let gamification = null;
     try {
-        gamification = await (0, gamification_js_1.awardSessionCompletion)(userId, durationMinutes);
+        gamification = await (0, gamification_js_1.awardSessionCompletion)(userId, durationMinutes, (0, timezone_js_1.resolveTimezone)(req.timezone));
     }
     catch {
         // Gamification failure should not block manual entry
@@ -292,6 +312,12 @@ router.post("/:id/cancel", validate_js_1.validateIdParam, (0, validate_js_1.asyn
         (0, errors_js_1.dbError)(res, error);
         return;
     }
+    // Unlink any linked todo (don't mark it complete)
+    await supabase_js_1.supabase
+        .from("todos")
+        .update({ linked_session_id: null, updated_at: new Date().toISOString() })
+        .eq("linked_session_id", session.id)
+        .eq("user_id", req.userId);
     res.json(data);
 }));
 // POST /api/sessions/:id/complete
@@ -319,9 +345,10 @@ router.post("/:id/complete", validate_js_1.validateIdParam, (0, validate_js_1.as
         return;
     }
     const completionStatus = completed ? "completed_yes" : "completed_no";
-    // Calculate ended_at from planned duration only (started_at + duration_minutes)
+    // Calculate ended_at accounting for pause time
     const startedMs = new Date(session.started_at).getTime();
-    const endedAt = new Date(startedMs + session.duration_minutes * 60 * 1000).toISOString();
+    const pausedMs = (session.paused_total_seconds ?? 0) * 1000;
+    const endedAt = new Date(startedMs + session.duration_minutes * 60 * 1000 + pausedMs).toISOString();
     const elapsedSeconds = session.duration_minutes * 60;
     const { data, error } = await supabase_js_1.supabase
         .from("sessions")
@@ -343,17 +370,45 @@ router.post("/:id/complete", validate_js_1.validateIdParam, (0, validate_js_1.as
     // Award XP, tomatoes, and update streak (non-fatal on failure)
     let gamification = null;
     try {
-        gamification = await (0, gamification_js_1.awardSessionCompletion)(req.userId, session.duration_minutes);
+        gamification = await (0, gamification_js_1.awardSessionCompletion)(req.userId, session.duration_minutes, (0, timezone_js_1.resolveTimezone)(req.timezone));
     }
     catch {
         // Gamification failure should not block session completion
     }
-    res.json({ ...data, gamification });
+    // Handle linked todo based on completion status
+    let todoCompleted = false;
+    if (completed) {
+        // Auto-complete the linked todo
+        const { data: linkedTodo } = await supabase_js_1.supabase
+            .from("todos")
+            .select("id")
+            .eq("linked_session_id", session.id)
+            .eq("user_id", req.userId)
+            .eq("is_completed", false)
+            .maybeSingle();
+        if (linkedTodo) {
+            await supabase_js_1.supabase
+                .from("todos")
+                .update({ is_completed: true, completed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                .eq("id", linkedTodo.id);
+            todoCompleted = true;
+        }
+    }
+    else {
+        // Goal not completed — unlink todo so it stays active
+        await supabase_js_1.supabase
+            .from("todos")
+            .update({ linked_session_id: null, updated_at: new Date().toISOString() })
+            .eq("linked_session_id", session.id)
+            .eq("user_id", req.userId);
+    }
+    res.json({ ...data, gamification, todo_completed: todoCompleted });
 }));
 // GET /api/sessions — with pagination (limit default 200, max 500)
 router.get("/", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler)(async (req, res) => {
     const userId = req.userId;
-    const { start, end, department_id, project_id, status, q, duration_minutes, limit: rawLimit, offset: rawOffset } = req.query;
+    const { start, end, department_id, project_id, status, q, duration_minutes, limit: rawLimit, offset: rawOffset, tz } = req.query;
+    const timezone = (0, timezone_js_1.resolveTimezone)(tz || req.timezone);
     const limit = Math.min(Math.max(1, Number(rawLimit) || 200), 500);
     const offset = Math.max(0, Number(rawOffset) || 0);
     let query = supabase_js_1.supabase
@@ -363,9 +418,9 @@ router.get("/", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler
         .order("started_at", { ascending: false })
         .range(offset, offset + limit - 1);
     if (start)
-        query = query.gte("started_at", `${start}T00:00:00+08:00`);
+        query = query.gte("started_at", (0, timezone_js_1.dateBoundary)(start, "00:00:00", timezone));
     if (end)
-        query = query.lte("started_at", `${end}T23:59:59+08:00`);
+        query = query.lte("started_at", (0, timezone_js_1.dateBoundary)(end, "23:59:59", timezone));
     if (department_id)
         query = query.eq("department_id", department_id);
     if (project_id)
@@ -375,7 +430,8 @@ router.get("/", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler
     if (duration_minutes)
         query = query.eq("duration_minutes", Number(duration_minutes));
     if (q) {
-        const keyword = `%${q.slice(0, 100)}%`;
+        const raw = q.slice(0, 100).replace(/[%_\\]/g, "\\$&");
+        const keyword = `%${raw}%`;
         query = query.or(`planned_title.ilike.${keyword},actual_title.ilike.${keyword},notes.ilike.${keyword}`);
     }
     const { data, error } = await query;

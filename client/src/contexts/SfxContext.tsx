@@ -7,6 +7,8 @@ interface SfxContextValue {
   playStart: () => void;
   playComplete: () => void;
   playLevelUp: () => void;
+  playAlarm: () => void;
+  stopAlarm: () => void;
   toggleMute: () => void;
   isMuted: boolean;
 }
@@ -118,6 +120,34 @@ export function SfxProvider({ children }: { children: React.ReactNode }) {
   const playComplete = useCallback(() => playSound("complete"), [playSound]);
   const playLevelUp = useCallback(() => playSound("levelUp"), [playSound]);
 
+  // ─── Alarm: loop completion sound until stopped ──
+  const alarmRef = useRef<HTMLAudioElement | null>(null);
+
+  const playAlarm = useCallback(() => {
+    if (muted) return;
+    preloadAll();
+
+    // Stop any existing alarm first
+    if (alarmRef.current) {
+      alarmRef.current.pause();
+      alarmRef.current = null;
+    }
+
+    const alarm = new Audio(SOUNDS.complete);
+    alarm.loop = true;
+    alarm.volume = 0.8;
+    alarm.play().catch(() => {});
+    alarmRef.current = alarm;
+  }, [muted, preloadAll]);
+
+  const stopAlarm = useCallback(() => {
+    if (alarmRef.current) {
+      alarmRef.current.pause();
+      alarmRef.current.currentTime = 0;
+      alarmRef.current = null;
+    }
+  }, []);
+
   const toggleMute = useCallback(() => {
     setMuted((prev) => {
       const next = !prev;
@@ -151,9 +181,19 @@ export function SfxProvider({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener("click", handler);
   }, [muted, playClick]);
 
+  // Clean up alarm on unmount
+  useEffect(() => {
+    return () => {
+      if (alarmRef.current) {
+        alarmRef.current.pause();
+        alarmRef.current = null;
+      }
+    };
+  }, []);
+
   const value = useMemo<SfxContextValue>(
-    () => ({ playClick, playStart, playComplete, playLevelUp, toggleMute, isMuted: muted }),
-    [playClick, playStart, playComplete, playLevelUp, toggleMute, muted],
+    () => ({ playClick, playStart, playComplete, playLevelUp, playAlarm, stopAlarm, toggleMute, isMuted: muted }),
+    [playClick, playStart, playComplete, playLevelUp, playAlarm, stopAlarm, toggleMute, muted],
   );
 
   return (

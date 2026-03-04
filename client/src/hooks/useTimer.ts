@@ -65,11 +65,11 @@ export function computeElapsed(state: TimerState): number {
 
 export function useTimer() {
   const [timerState, setTimerState] = useState<TimerState | null>(loadState);
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(
-    () => timerState ? computeRemaining(timerState) : 0,
-  );
-  const [elapsedSeconds, setElapsedSeconds] = useState<number>(
-    () => timerState ? computeElapsed(timerState) : 0,
+  const [tickSeconds, setTickSeconds] = useState<{ remaining: number; elapsed: number }>(
+    () => ({
+      remaining: timerState ? computeRemaining(timerState) : 0,
+      elapsed: timerState ? computeElapsed(timerState) : 0,
+    }),
   );
 
   const workerRef = useRef<Worker | null>(null);
@@ -93,8 +93,7 @@ export function useTimer() {
 
     const remaining = computeRemaining(s);
     const elapsed = computeElapsed(s);
-    setRemainingSeconds(remaining);
-    setElapsedSeconds(elapsed);
+    setTickSeconds({ remaining, elapsed });
 
     if (s.status === "paused") return;
 
@@ -157,8 +156,7 @@ export function useTimer() {
             serverSession.status === "canceled"
           ) {
             setTimerState(null);
-            setRemainingSeconds(0);
-            setElapsedSeconds(0);
+            setTickSeconds({ remaining: 0, elapsed: 0 });
             workerRef.current?.postMessage({ command: "stop" });
             return;
           }
@@ -178,8 +176,7 @@ export function useTimer() {
         .catch(() => {
           // If session not found on server, clear local state
           setTimerState(null);
-          setRemainingSeconds(0);
-          setElapsedSeconds(0);
+          setTickSeconds({ remaining: 0, elapsed: 0 });
         });
     } else {
       // ── No localStorage data: check server for active session ──
@@ -210,14 +207,12 @@ export function useTimer() {
           if (computeRemaining(restored) <= 0) {
             restored.status = "finished";
             setTimerState(restored);
-            setRemainingSeconds(0);
-            setElapsedSeconds(restored.durationMinutes * 60);
+            setTickSeconds({ remaining: 0, elapsed: restored.durationMinutes * 60 });
             return;
           }
 
           setTimerState(restored);
-          setRemainingSeconds(computeRemaining(restored));
-          setElapsedSeconds(computeElapsed(restored));
+          setTickSeconds({ remaining: computeRemaining(restored), elapsed: computeElapsed(restored) });
           workerRef.current?.postMessage({ command: "start" });
         })
         .catch(() => {
@@ -243,8 +238,7 @@ export function useTimer() {
       if (!raw) {
         // Timer cleared in another tab
         setTimerState(null);
-        setRemainingSeconds(0);
-        setElapsedSeconds(0);
+        setTickSeconds({ remaining: 0, elapsed: 0 });
         workerRef.current?.postMessage({ command: "stop" });
         return;
       }
@@ -252,8 +246,7 @@ export function useTimer() {
       try {
         const incoming = JSON.parse(raw) as TimerState;
         setTimerState(incoming);
-        setRemainingSeconds(computeRemaining(incoming));
-        setElapsedSeconds(computeElapsed(incoming));
+        setTickSeconds({ remaining: computeRemaining(incoming), elapsed: computeElapsed(incoming) });
 
         // Start/stop worker based on incoming state
         if (incoming.status === "running" || incoming.status === "paused") {
@@ -290,6 +283,7 @@ export function useTimer() {
       project_id: params.projectId,
       duration_minutes: params.durationMinutes,
       planned_title: params.plannedTitle,
+      ...(params.todoId ? { todo_id: params.todoId } : {}),
     });
 
     const newState: TimerState = {
@@ -308,8 +302,7 @@ export function useTimer() {
     };
 
     setTimerState(newState);
-    setRemainingSeconds(params.durationMinutes * 60);
-    setElapsedSeconds(0);
+    setTickSeconds({ remaining: params.durationMinutes * 60, elapsed: 0 });
     workerRef.current?.postMessage({ command: "start" });
   }, []);
 
@@ -352,20 +345,19 @@ export function useTimer() {
 
     workerRef.current?.postMessage({ command: "stop" });
     setTimerState(null);
-    setRemainingSeconds(0);
-    setElapsedSeconds(0);
+    setTickSeconds({ remaining: 0, elapsed: 0 });
   }, []);
 
   const reset = useCallback(() => {
     workerRef.current?.postMessage({ command: "stop" });
     setTimerState(null);
-    setRemainingSeconds(0);
-    setElapsedSeconds(0);
+    setTickSeconds({ remaining: 0, elapsed: 0 });
   }, []);
 
   // ─── Derived values ────────────────────────
 
   const status: TimerStatus = timerState?.status ?? "idle";
+  const { remaining: remainingSeconds, elapsed: elapsedSeconds } = tickSeconds;
   const progress = timerState
     ? 1 - remainingSeconds / (timerState.durationMinutes * 60)
     : 0;

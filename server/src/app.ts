@@ -14,6 +14,7 @@ import sessionRoutes from "./routes/sessions.js";
 import reportRoutes from "./routes/reports.js";
 import exportRoutes from "./routes/exports.js";
 import progressRoutes from "./routes/progress.js";
+import todoRoutes from "./routes/todos.js";
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production";
@@ -22,11 +23,26 @@ const isProduction = process.env.NODE_ENV === "production";
 app.use(helmet());
 
 // ─── CORS ────────────────────────────────────
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim());
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+      // Allow exact matches and Vercel preview deployments
+      if (
+        allowedOrigins.includes(origin) ||
+        /^https:\/\/nuvatimer[a-z0-9-]*\.vercel\.app$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Timezone"],
     maxAge: 86400,
   }),
 );
@@ -89,6 +105,7 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/exports", exportRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/todos", todoRoutes);
 
 // ─── 404 Handler ─────────────────────────────
 app.use("/api", (_req: Request, res: Response) => {

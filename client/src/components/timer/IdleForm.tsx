@@ -10,9 +10,10 @@ import type { StartParams } from "../../types/timer";
 interface IdleFormProps {
   onStart: (p: StartParams) => Promise<void>;
   onSchedule: (p: StartParams, delayMinutes: number) => void;
+  prefill?: { departmentId: string; plannedTitle: string; todoId: string };
 }
 
-export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
+export default function IdleForm({ onStart, onSchedule, prefill }: IdleFormProps) {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,7 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
   const [projectId, setProjectId] = useState("");
   const [duration, setDuration] = useState(20);
   const [plannedTitle, setPlannedTitle] = useState("");
+  const [todoId, setTodoId] = useState<string | undefined>(undefined);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
   const [showSchedule, setShowSchedule] = useState(false);
@@ -63,6 +65,15 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Apply prefill from selected todo
+  useEffect(() => {
+    if (prefill) {
+      setDepartmentId(prefill.departmentId);
+      setPlannedTitle(prefill.plannedTitle);
+      setTodoId(prefill.todoId);
+    }
+  }, [prefill]);
+
   // Sort departments A-Z by short label
   const sortedDepartments = useMemo(() => {
     return [...departments].sort((a, b) => {
@@ -93,6 +104,7 @@ export default function IdleForm({ onStart, onSchedule }: IdleFormProps) {
       projectName: proj.name,
       durationMinutes: duration,
       plannedTitle: plannedTitle.trim(),
+      todoId,
     };
   };
 

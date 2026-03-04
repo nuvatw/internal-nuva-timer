@@ -19,15 +19,29 @@ const sessions_js_1 = __importDefault(require("./routes/sessions.js"));
 const reports_js_1 = __importDefault(require("./routes/reports.js"));
 const exports_js_1 = __importDefault(require("./routes/exports.js"));
 const progress_js_1 = __importDefault(require("./routes/progress.js"));
+const todos_js_1 = __importDefault(require("./routes/todos.js"));
 const app = (0, express_1.default)();
 const isProduction = process.env.NODE_ENV === "production";
 // ─── Security Headers ────────────────────────
 app.use((0, helmet_1.default)());
 // ─── CORS ────────────────────────────────────
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+    .split(",")
+    .map((o) => o.trim());
 app.use((0, cors_1.default)({
-    origin: process.env.CLIENT_URL || "http://localhost:5173",
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, curl, etc.)
+        if (!origin)
+            return callback(null, true);
+        // Allow exact matches and Vercel preview deployments
+        if (allowedOrigins.includes(origin) ||
+            /^https:\/\/nuvatimer[a-z0-9-]*\.vercel\.app$/.test(origin)) {
+            return callback(null, true);
+        }
+        callback(new Error("Not allowed by CORS"));
+    },
     methods: ["GET", "POST", "PATCH", "DELETE"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Timezone"],
     maxAge: 86400,
 }));
 // ─── Compression ─────────────────────────────
@@ -83,6 +97,7 @@ app.use("/api/sessions", sessions_js_1.default);
 app.use("/api/reports", reports_js_1.default);
 app.use("/api/exports", exports_js_1.default);
 app.use("/api/progress", progress_js_1.default);
+app.use("/api/todos", todos_js_1.default);
 // ─── 404 Handler ─────────────────────────────
 app.use("/api", (_req, res) => {
     res.status(404).json({ error: { code: "NOT_FOUND", message: "Endpoint not found" } });

@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { Sparkles, Zap } from "lucide-react";
 import { useProgress } from "../contexts/ProgressContext";
 import { getCurrentMultiplier } from "@nuva/shared/game";
@@ -9,22 +8,15 @@ import AnimatedNumber from "./AnimatedNumber";
 
 function TomatoDot({ earned, index }: { earned: boolean; index: number }) {
   return (
-    <motion.div
+    <div
       className={`h-3.5 w-3.5 rounded-full transition-colors ${
         earned
           ? "bg-accent shadow-sm shadow-accent/25"
           : "border border-border-subtle bg-transparent"
       }`}
-      initial={earned ? { scale: 0 } : false}
-      animate={earned ? { scale: 1 } : undefined}
-      transition={
+      style={
         earned
-          ? {
-              type: "spring",
-              stiffness: 500,
-              damping: 20,
-              delay: index * 0.04,
-            }
+          ? { animation: `dot-scale-in 300ms ease-out ${index * 40}ms both` }
           : undefined
       }
       aria-hidden="true"
@@ -95,11 +87,9 @@ export default function DailyProgress({ compact }: { compact?: boolean }) {
   }
 
   return (
-    <motion.div
+    <div
       className="text-center space-y-3 py-6"
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      style={{ animation: "fade-slide-in 300ms cubic-bezier(0.16,1,0.3,1) both" }}
     >
       {/* Daily minutes + multiplier */}
       <div className="flex items-center justify-center gap-3">
@@ -147,6 +137,6 @@ export default function DailyProgress({ compact }: { compact?: boolean }) {
           +<AnimatedNumber value={daily_xp} /> XP earned today
         </p>
       )}
-    </motion.div>
+    </div>
   );
 }

@@ -7,8 +7,9 @@ const express_1 = require("express");
 const papaparse_1 = __importDefault(require("papaparse"));
 const supabase_js_1 = require("../supabase.js");
 const validate_js_1 = require("../middleware/validate.js");
+const timezone_js_1 = require("../lib/timezone.js");
 const router = (0, express_1.Router)();
-async function fetchFilteredSessions(userId, query) {
+async function fetchFilteredSessions(userId, query, timezone) {
     const { start, end, department_id, project_id, status, q, duration_minutes } = query;
     if (!start || !end) {
         return { sessions: [], error: "start and end query params are required" };
@@ -17,8 +18,8 @@ async function fetchFilteredSessions(userId, query) {
         .from("sessions")
         .select("started_at, ended_at, canceled_at, elapsed_seconds, duration_minutes, status, planned_title, actual_title, notes, department_id, departments(name), projects(code, name)")
         .eq("user_id", userId)
-        .gte("started_at", `${start}T00:00:00+08:00`)
-        .lte("started_at", `${end}T23:59:59+08:00`)
+        .gte("started_at", (0, timezone_js_1.dateBoundary)(start, "00:00:00", timezone))
+        .lte("started_at", (0, timezone_js_1.dateBoundary)(end, "23:59:59", timezone))
         .order("started_at", { ascending: true });
     if (department_id)
         dbQuery = dbQuery.eq("department_id", department_id);
@@ -33,7 +34,8 @@ async function fetchFilteredSessions(userId, query) {
     if (duration_minutes)
         dbQuery = dbQuery.eq("duration_minutes", Number(duration_minutes));
     if (q) {
-        const keyword = `%${q.slice(0, 100)}%`;
+        const raw = q.slice(0, 100).replace(/[%_\\]/g, "\\$&");
+        const keyword = `%${raw}%`;
         dbQuery = dbQuery.or(`planned_title.ilike.${keyword},actual_title.ilike.${keyword},notes.ilike.${keyword}`);
     }
     const { data, error } = await dbQuery;
@@ -45,14 +47,13 @@ async function fetchFilteredSessions(userId, query) {
     };
 }
 // ─── Helpers ────────────────────────────────
-const TZ = "Asia/Taipei";
-function formatDateTZ(iso) {
+function formatDateTZ(iso, tz) {
     const d = new Date(iso);
-    return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+    return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
-function formatTimeTZ(iso) {
+function formatTimeTZ(iso, tz) {
     const d = new Date(iso);
-    return new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+    return new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
 }
 function statusText(s) {
     switch (s) {
@@ -135,7 +136,8 @@ function buildTitle(start, end) {
 // ─── CSV Export ─────────────────────────────
 router.get("/sessions.csv", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler)(async (req, res) => {
     const userId = req.userId;
-    const { sessions, error } = await fetchFilteredSessions(userId, req.query);
+    const tz = (0, timezone_js_1.resolveTimezone)(req.query.tz || req.timezone);
+    const { sessions, error } = await fetchFilteredSessions(userId, req.query, tz);
     if (error) {
         res.status(400).json({ error: { code: "VALIDATION_ERROR", message: error } });
         return;
@@ -169,12 +171,11 @@ router.get("/sessions.csv", validate_js_1.validateDateParams, (0, validate_js_1.
     // Session rows
     for (const s of sessions) {
         const proj = s.projects;
-        // Always use planned end: started_at + duration_minutes
         const plannedEnd = new Date(new Date(s.started_at).getTime() + s.duration_minutes * 60_000).toISOString();
-        const endTime = formatTimeTZ(plannedEnd);
+        const endTime = formatTimeTZ(plannedEnd, tz);
         rows.push({
-            Date: formatDateTZ(s.started_at),
-            Start: formatTimeTZ(s.started_at),
+            Date: formatDateTZ(s.started_at, tz),
+            Start: formatTimeTZ(s.started_at, tz),
             End: endTime,
             Department: s.departments?.name ?? "",
             Project: proj?.code ? `${proj.code} — ${proj.name}` : proj?.name ?? "",
@@ -196,7 +197,8 @@ router.get("/sessions.csv", validate_js_1.validateDateParams, (0, validate_js_1.
 // ─── Markdown Export ────────────────────────
 router.get("/summary.md", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler)(async (req, res) => {
     const userId = req.userId;
-    const { sessions, error } = await fetchFilteredSessions(userId, req.query);
+    const tz = (0, timezone_js_1.resolveTimezone)(req.query.tz || req.timezone);
+    const { sessions, error } = await fetchFilteredSessions(userId, req.query, tz);
     if (error) {
         res.status(400).json({ error: { code: "VALIDATION_ERROR", message: error } });
         return;
@@ -253,7 +255,7 @@ router.get("/summary.md", validate_js_1.validateDateParams, (0, validate_js_1.as
                 ? `~~${s.planned_title}~~ → ${s.actual_title}`
                 : s.planned_title;
             const notes = s.notes ? s.notes.replace(/\|/g, "\\|").replace(/\n/g, " ") : "";
-            lines.push(`| ${formatDateTZ(s.started_at)} | ${formatTimeTZ(s.started_at)} | ${deptName} | ${projName} | ${s.duration_minutes}m | ${displayTitle} | ${statusText(s.status)} | ${notes} |`);
+            lines.push(`| ${formatDateTZ(s.started_at, tz)} | ${formatTimeTZ(s.started_at, tz)} | ${deptName} | ${projName} | ${s.duration_minutes}m | ${displayTitle} | ${statusText(s.status)} | ${notes} |`);
         }
     }
     lines.push("", `---`, `_Exported from nuva Focus Timer_`, "");
@@ -266,7 +268,8 @@ router.get("/summary.md", validate_js_1.validateDateParams, (0, validate_js_1.as
 // ─── JSON Export ────────────────────────────
 router.get("/sessions.json", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler)(async (req, res) => {
     const userId = req.userId;
-    const { sessions, error } = await fetchFilteredSessions(userId, req.query);
+    const tz = (0, timezone_js_1.resolveTimezone)(req.query.tz || req.timezone);
+    const { sessions, error } = await fetchFilteredSessions(userId, req.query, tz);
     if (error) {
         res.status(400).json({ error: { code: "VALIDATION_ERROR", message: error } });
         return;
@@ -302,7 +305,7 @@ router.get("/sessions.json", validate_js_1.validateDateParams, (0, validate_js_1
             const proj = s.projects;
             const dept = s.departments;
             return {
-                date: formatDateTZ(s.started_at),
+                date: formatDateTZ(s.started_at, tz),
                 started_at: s.started_at,
                 ended_at: s.ended_at,
                 canceled_at: s.canceled_at,

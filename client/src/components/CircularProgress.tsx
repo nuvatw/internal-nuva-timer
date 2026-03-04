@@ -1,5 +1,3 @@
-import { motion } from "framer-motion";
-
 interface CircularProgressProps {
   /** 0 to 1 — how much time has elapsed (0 = full ring, 1 = empty ring) */
   progress: number;
@@ -29,10 +27,9 @@ export default function CircularProgress({
   const offset = circumference * clamped;
 
   const gradientId = "progress-gradient";
-  const glowId = "progress-glow-filter";
 
   return (
-    <motion.div
+    <div
       className="relative inline-flex items-center justify-center"
       style={{ width: size, height: size }}
       role="progressbar"
@@ -40,9 +37,6 @@ export default function CircularProgress({
       aria-valuenow={Math.round((1 - clamped) * 100)}
       aria-valuemin={0}
       aria-valuemax={100}
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 300, damping: 25 }}
     >
       <svg
         width={size}
@@ -63,10 +57,6 @@ export default function CircularProgress({
               stopColor={paused ? "var(--color-warning-light, #fbbf24)" : "var(--color-accent-light, #fbbf24)"}
             />
           </linearGradient>
-          {/* Blur filter for glow */}
-          <filter id={glowId}>
-            <feGaussianBlur stdDeviation="4" result="blur" />
-          </filter>
         </defs>
 
         {/* Background track */}
@@ -79,27 +69,21 @@ export default function CircularProgress({
           strokeWidth={strokeWidth}
         />
 
-        {/* Glow layer (behind progress arc) */}
-        <motion.circle
+        {/* Glow layer (behind progress arc) — CSS-only opacity animation */}
+        <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
           stroke={paused ? "var(--color-warning)" : "var(--color-accent)"}
-          strokeWidth={strokeWidth + 4}
+          strokeWidth={strokeWidth + 6}
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={offset}
-          filter={`url(#${glowId})`}
-          animate={
+          style={
             paused
               ? { opacity: 0.15 }
-              : { opacity: [0.15, 0.35, 0.15] }
-          }
-          transition={
-            paused
-              ? { duration: 0.4 }
-              : { duration: 3, repeat: Infinity, ease: "easeInOut" }
+              : { animation: "glow-breathe 3s ease-in-out infinite" }
           }
           className="transition-[stroke-dashoffset] duration-1000 ease-linear"
         />
@@ -123,6 +107,6 @@ export default function CircularProgress({
       <div className="relative z-10 flex flex-col items-center justify-center">
         {children}
       </div>
-    </motion.div>
+    </div>
   );
 }

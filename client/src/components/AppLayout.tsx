@@ -1,6 +1,6 @@
 import { lazy, memo, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Timer,
   BarChart3,
@@ -18,7 +18,6 @@ import {
   Flame,
   type LucideIcon,
 } from "lucide-react";
-import { pageTransition, pageVariants } from "../lib/motion";
 import { useAuth } from "../contexts/AuthContext";
 import { useProfile } from "../contexts/ProfileContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -325,7 +324,6 @@ export default function AppLayout() {
               nuva
             </span>
 
-            <LayoutGroup id="nav-tabs">
             <nav className="flex items-center gap-0.5 relative" aria-label="Main navigation">
               {tabItems.map(({ to, label, icon: Icon }) => (
                 <NavLink
@@ -342,10 +340,9 @@ export default function AppLayout() {
                   {({ isActive }) => (
                     <>
                       {isActive && (
-                        <motion.div
-                          layoutId="tab-indicator"
+                        <div
                           className="absolute inset-0 rounded-lg bg-surface-raised"
-                          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                          style={{ animation: "nav-indicator 200ms ease-out both" }}
                         />
                       )}
                       <span className="relative z-10 flex items-center gap-2">
@@ -357,7 +354,6 @@ export default function AppLayout() {
                 </NavLink>
               ))}
             </nav>
-            </LayoutGroup>
           </div>
 
           {/* Right: XP bar + Avatar */}
@@ -416,18 +412,7 @@ export default function AppLayout() {
         </AnimatePresence>
 
         <div className={`mx-auto ${location.pathname === "/calendar" ? "max-w-6xl" : "max-w-3xl"}`}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              variants={pageVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={pageTransition}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+          <Outlet />
         </div>
       </main>
 

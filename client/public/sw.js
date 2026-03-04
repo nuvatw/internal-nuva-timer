@@ -10,6 +10,7 @@ self.addEventListener("install", (event) => {
     caches.open(CACHE_NAME).then((cache) =>
       cache.addAll([
         "/",
+        "/manifest.json",
         "/sfx/clicked.wav",
         "/sfx/sectionStart.wav",
         "/sfx/sectionComplete.wav",

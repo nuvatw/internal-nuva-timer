@@ -10,6 +10,7 @@ async function getAuthHeaders(includeContentType = false): Promise<Record<string
   if (!token) throw new Error("Not authenticated");
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
+    "X-Timezone": Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
   if (includeContentType) {
     headers["Content-Type"] = "application/json";
@@ -25,9 +26,9 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function handle401(): never {
-  // Clear auth state and redirect to login
-  supabase.auth.signOut();
+async function handle401(): Promise<never> {
+  // Clear auth state before redirecting
+  await supabase.auth.signOut();
   window.location.href = "/login";
   throw new Error("Session expired — please log in again");
 }
@@ -44,7 +45,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         headers: { ...headers, ...options.headers },
       });
 
-      if (res.status === 401) handle401();
+      if (res.status === 401) await handle401();
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -81,7 +82,7 @@ async function download(path: string): Promise<void> {
   const headers = await getAuthHeaders(false);
   const res = await fetch(`${API_BASE}${path}`, { headers });
 
-  if (res.status === 401) handle401();
+  if (res.status === 401) await handle401();
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -107,7 +108,7 @@ async function download(path: string): Promise<void> {
 async function del(path: string): Promise<void> {
   const headers = await getAuthHeaders(false);
   const res = await fetch(`${API_BASE}${path}`, { method: "DELETE", headers });
-  if (res.status === 401) handle401();
+  if (res.status === 401) await handle401();
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error?.message || `Delete failed: ${res.status}`);

@@ -30,7 +30,7 @@ export default function LevelUpOverlay({ levelChanged, onDismiss }: LevelUpOverl
       // Dual confetti cannon with slight delay
       const fire = (angle: number, origin: { x: number; y: number }) => {
         confetti({
-          particleCount: 80,
+          particleCount: 40,
           spread: 70,
           angle,
           origin,

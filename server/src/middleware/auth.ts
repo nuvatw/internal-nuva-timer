@@ -6,6 +6,7 @@ declare global {
     interface Request {
       userId?: string;
       requestId?: string;
+      timezone?: string;
     }
   }
 }
@@ -33,6 +34,7 @@ export async function authMiddleware(
     }
 
     req.userId = data.user.id;
+    req.timezone = req.headers["x-timezone"] as string | undefined;
     next();
   } catch {
     res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Authentication failed" } });

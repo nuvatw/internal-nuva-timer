@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import { supabase } from "../supabase.js";
 import { validateDateParams, asyncHandler } from "../middleware/validate.js";
 import { dbError } from "../middleware/errors.js";
+import { resolveTimezone, dateBoundary } from "../lib/timezone.js";
 
 const router = Router();
 
@@ -17,15 +18,15 @@ router.get("/summary", validateDateParams, asyncHandler(async (req: Request, res
     return;
   }
 
-  const { department_id, project_id, status: statusFilter, q, duration_minutes } = req.query;
+  const { department_id, project_id, status: statusFilter, q, duration_minutes, tz } = req.query;
+  const timezone = resolveTimezone((tz as string) || req.timezone);
 
-  // Fetch all non-canceled sessions in range (Asia/Taipei boundaries)
   let query = supabase
     .from("sessions")
     .select("duration_minutes, department_id, status, departments(name)")
     .eq("user_id", userId)
-    .gte("started_at", `${start}T00:00:00+08:00`)
-    .lte("started_at", `${end}T23:59:59+08:00`);
+    .gte("started_at", dateBoundary(start as string, "00:00:00", timezone))
+    .lte("started_at", dateBoundary(end as string, "23:59:59", timezone));
 
   // Apply optional filters
   if (department_id) query = query.eq("department_id", department_id as string);
@@ -37,7 +38,8 @@ router.get("/summary", validateDateParams, asyncHandler(async (req: Request, res
   }
   if (duration_minutes) query = query.eq("duration_minutes", Number(duration_minutes));
   if (q) {
-    const keyword = `%${(q as string).slice(0, 100)}%`;
+    const raw = (q as string).slice(0, 100).replace(/[%_\\]/g, "\\$&");
+    const keyword = `%${raw}%`;
     query = query.or(`planned_title.ilike.${keyword},actual_title.ilike.${keyword},notes.ilike.${keyword}`);
   }
 

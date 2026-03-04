@@ -13,9 +13,23 @@ router.get("/me", asyncHandler(async (req: Request, res: Response) => {
     .from("profiles")
     .select("user_id, display_name, avatar_emoji, created_at, updated_at")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (error) { dbError(res, error); return; }
+
+  // Profile row may not exist yet for new users — create it
+  if (!data) {
+    const { data: created, error: createErr } = await supabase
+      .from("profiles")
+      .insert({ user_id: userId })
+      .select("user_id, display_name, avatar_emoji, created_at, updated_at")
+      .single();
+
+    if (createErr) { dbError(res, createErr); return; }
+
+    res.json({ ...created, is_onboarded: false });
+    return;
+  }
 
   const isOnboarded = !!data.display_name;
 

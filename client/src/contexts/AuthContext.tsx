@@ -1,7 +1,9 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -42,15 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     await supabase.auth.signOut();
     setSession(null);
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ session, user: session?.user ?? null, loading, signOut }),
+    [session, loading, signOut],
+  );
 
   return (
-    <AuthContext.Provider
-      value={{ session, user: session?.user ?? null, loading, signOut }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

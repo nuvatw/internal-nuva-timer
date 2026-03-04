@@ -4,6 +4,7 @@ const express_1 = require("express");
 const supabase_js_1 = require("../supabase.js");
 const validate_js_1 = require("../middleware/validate.js");
 const errors_js_1 = require("../middleware/errors.js");
+const timezone_js_1 = require("../lib/timezone.js");
 const router = (0, express_1.Router)();
 // GET /api/reports/summary?start=YYYY-MM-DD&end=YYYY-MM-DD
 router.get("/summary", validate_js_1.validateDateParams, (0, validate_js_1.asyncHandler)(async (req, res) => {
@@ -15,14 +16,14 @@ router.get("/summary", validate_js_1.validateDateParams, (0, validate_js_1.async
         });
         return;
     }
-    const { department_id, project_id, status: statusFilter, q, duration_minutes } = req.query;
-    // Fetch all non-canceled sessions in range (Asia/Taipei boundaries)
+    const { department_id, project_id, status: statusFilter, q, duration_minutes, tz } = req.query;
+    const timezone = (0, timezone_js_1.resolveTimezone)(tz || req.timezone);
     let query = supabase_js_1.supabase
         .from("sessions")
         .select("duration_minutes, department_id, status, departments(name)")
         .eq("user_id", userId)
-        .gte("started_at", `${start}T00:00:00+08:00`)
-        .lte("started_at", `${end}T23:59:59+08:00`);
+        .gte("started_at", (0, timezone_js_1.dateBoundary)(start, "00:00:00", timezone))
+        .lte("started_at", (0, timezone_js_1.dateBoundary)(end, "23:59:59", timezone));
     // Apply optional filters
     if (department_id)
         query = query.eq("department_id", department_id);
@@ -37,7 +38,8 @@ router.get("/summary", validate_js_1.validateDateParams, (0, validate_js_1.async
     if (duration_minutes)
         query = query.eq("duration_minutes", Number(duration_minutes));
     if (q) {
-        const keyword = `%${q.slice(0, 100)}%`;
+        const raw = q.slice(0, 100).replace(/[%_\\]/g, "\\$&");
+        const keyword = `%${raw}%`;
         query = query.or(`planned_title.ilike.${keyword},actual_title.ilike.${keyword},notes.ilike.${keyword}`);
     }
     const { data: sessions, error } = await query;

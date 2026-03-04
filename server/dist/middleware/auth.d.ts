@@ -4,6 +4,7 @@ declare global {
         interface Request {
             userId?: string;
             requestId?: string;
+            timezone?: string;
         }
     }
 }

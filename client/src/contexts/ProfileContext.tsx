@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   type ReactNode,
 } from "react";
@@ -56,8 +57,13 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProfile]);
 
+  const value = useMemo(
+    () => ({ profile, loading, refresh: fetchProfile }),
+    [profile, loading, fetchProfile],
+  );
+
   return (
-    <ProfileContext.Provider value={{ profile, loading, refresh: fetchProfile }}>
+    <ProfileContext.Provider value={value}>
       {children}
     </ProfileContext.Provider>
   );

@@ -16,6 +16,7 @@ interface ProgressRow {
 }
 /**
  * Fetch or create user_progress row. Resets daily counters if the date changed.
+ * Uses the user's timezone (IANA name) to determine "today".
  */
-export declare function getOrCreateProgress(userId: string): Promise<ProgressRow | null>;
+export declare function getOrCreateProgress(userId: string, timezone?: string): Promise<ProgressRow | null>;
 export default router;

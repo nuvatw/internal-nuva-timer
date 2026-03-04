@@ -4,12 +4,13 @@ exports.awardSessionCompletion = awardSessionCompletion;
 const supabase_js_1 = require("../supabase.js");
 const game_1 = require("@nuva/shared/game");
 const progress_js_1 = require("../routes/progress.js");
+const timezone_js_1 = require("./timezone.js");
 /**
  * Award XP, tomatoes, and update streak after a session completion.
  * Returns null if progress couldn't be loaded (non-fatal).
  */
-async function awardSessionCompletion(userId, durationMinutes) {
-    const progress = await (0, progress_js_1.getOrCreateProgress)(userId);
+async function awardSessionCompletion(userId, durationMinutes, timezone = "Asia/Taipei") {
+    const progress = await (0, progress_js_1.getOrCreateProgress)(userId, timezone);
     if (!progress)
         return null;
     const dailyMinBefore = progress.daily_focus_minutes;
@@ -19,11 +20,14 @@ async function awardSessionCompletion(userId, durationMinutes) {
     const oldLevel = progress.current_level;
     const newLevel = Math.max(oldLevel, (0, game_1.levelFromXp)(newTotalXp));
     // ─── Streak logic ──────────────────────
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (0, timezone_js_1.todayInTimezone)(timezone);
     const lastDate = progress.last_session_date;
     let newStreak = progress.current_streak;
     if (lastDate !== today) {
-        const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+        // Compute yesterday in the user's timezone
+        const now = new Date();
+        const yesterdayDate = new Date(now.getTime() - 86400000);
+        const yesterday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(yesterdayDate);
         newStreak = lastDate === yesterday ? progress.current_streak + 1 : 1;
     }
     const newLongest = Math.max(progress.longest_streak, newStreak);

@@ -3,14 +3,9 @@ import { supabase } from "../supabase.js";
 import { asyncHandler } from "../middleware/validate.js";
 import { dbError } from "../middleware/errors.js";
 import { xpForLevel, levelFromXp, getLevelTitle, getCurrentMultiplier } from "@nuva/shared/game";
+import { resolveTimezone, todayInTimezone } from "../lib/timezone.js";
 
 const router = Router();
-
-// ─── Helpers ───────────────────────────────────
-
-function todayDateString(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 interface ProgressRow {
   user_id: string;
@@ -30,8 +25,9 @@ interface ProgressRow {
 
 /**
  * Fetch or create user_progress row. Resets daily counters if the date changed.
+ * Uses the user's timezone (IANA name) to determine "today".
  */
-export async function getOrCreateProgress(userId: string): Promise<ProgressRow | null> {
+export async function getOrCreateProgress(userId: string, timezone = "Asia/Taipei"): Promise<ProgressRow | null> {
   const { data, error } = await supabase
     .from("user_progress")
     .select("*")
@@ -53,7 +49,7 @@ export async function getOrCreateProgress(userId: string): Promise<ProgressRow |
   if (error) return null;
 
   const row = data as ProgressRow;
-  const today = todayDateString();
+  const today = todayInTimezone(timezone);
 
   // Reset daily counters if date changed
   if (row.daily_date !== today) {
@@ -82,7 +78,8 @@ export async function getOrCreateProgress(userId: string): Promise<ProgressRow |
 
 router.get("/", asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const progress = await getOrCreateProgress(userId);
+  const timezone = resolveTimezone(req.timezone);
+  const progress = await getOrCreateProgress(userId, timezone);
 
   if (!progress) {
     res.status(500).json({ error: { code: "SERVER_ERROR", message: "Failed to load progress" } });
@@ -127,7 +124,8 @@ router.patch("/goal", asyncHandler(async (req: Request, res: Response) => {
   }
 
   // Ensure row exists
-  await getOrCreateProgress(userId);
+  const timezone = resolveTimezone(req.timezone);
+  await getOrCreateProgress(userId, timezone);
 
   const { data, error } = await supabase
     .from("user_progress")

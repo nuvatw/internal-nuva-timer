@@ -1,5 +1,4 @@
-import { memo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { memo, useRef } from "react";
 
 interface CountdownDigitsProps {
   /** Total remaining seconds */
@@ -16,14 +15,6 @@ function toDigits(totalSeconds: number): [string, string, string, string] {
   return [mm[0], mm[1], ss[0], ss[1]];
 }
 
-const digitVariants = {
-  initial: { y: -12, opacity: 0, filter: "blur(2px)" },
-  animate: { y: 0, opacity: 1, filter: "blur(0px)" },
-  exit: { y: 12, opacity: 0, filter: "blur(2px)" },
-};
-
-const digitTransition = { duration: 0.25, ease: [0.16, 1, 0.3, 1] as const };
-
 const Digit = memo(function Digit({
   value,
   position,
@@ -31,21 +22,19 @@ const Digit = memo(function Digit({
   value: string;
   position: number;
 }) {
+  const prevRef = useRef(value);
+  const changed = prevRef.current !== value;
+  prevRef.current = value;
+
   return (
     <span className="relative inline-block w-[0.62em] overflow-hidden text-center">
-      <AnimatePresence mode="popLayout" initial={false}>
-        <motion.span
-          key={`${position}-${value}`}
-          variants={digitVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-          transition={digitTransition}
-          className="inline-block"
-        >
-          {value}
-        </motion.span>
-      </AnimatePresence>
+      <span
+        key={`${position}-${value}`}
+        className="inline-block"
+        style={changed ? { animation: "digit-enter 250ms cubic-bezier(0.16,1,0.3,1) both" } : undefined}
+      >
+        {value}
+      </span>
     </span>
   );
 });
@@ -65,21 +54,16 @@ export default memo(function CountdownDigits({
       <Digit value={m1} position={0} />
       <Digit value={m2} position={1} />
       {/* Pulsing colon */}
-      <motion.span
+      <span
         className="inline-block w-[0.35em] text-center relative -top-[0.05em]"
-        animate={
+        style={
           paused
             ? { opacity: 1 }
-            : { opacity: [1, 0.25, 1] }
-        }
-        transition={
-          paused
-            ? { duration: 0.3 }
-            : { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+            : { animation: "colon-pulse 1.2s ease-in-out infinite" }
         }
       >
         :
-      </motion.span>
+      </span>
       <Digit value={s1} position={2} />
       <Digit value={s2} position={3} />
     </span>

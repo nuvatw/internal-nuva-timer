@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express";
 import Papa from "papaparse";
 import { supabase } from "../supabase.js";
 import { validateDateParams, asyncHandler } from "../middleware/validate.js";
+import { resolveTimezone, dateBoundary } from "../lib/timezone.js";
 
 const router = Router();
 
@@ -24,7 +25,8 @@ interface SessionRow {
 
 async function fetchFilteredSessions(
   userId: string,
-  query: Record<string, unknown>
+  query: Record<string, unknown>,
+  timezone: string,
 ): Promise<{ sessions: SessionRow[]; error: string | null }> {
   const { start, end, department_id, project_id, status, q, duration_minutes } = query;
 
@@ -36,8 +38,8 @@ async function fetchFilteredSessions(
     .from("sessions")
     .select("started_at, ended_at, canceled_at, elapsed_seconds, duration_minutes, status, planned_title, actual_title, notes, department_id, departments(name), projects(code, name)")
     .eq("user_id", userId)
-    .gte("started_at", `${start}T00:00:00+08:00`)
-    .lte("started_at", `${end}T23:59:59+08:00`)
+    .gte("started_at", dateBoundary(start as string, "00:00:00", timezone))
+    .lte("started_at", dateBoundary(end as string, "23:59:59", timezone))
     .order("started_at", { ascending: true });
 
   if (department_id) dbQuery = dbQuery.eq("department_id", department_id as string);
@@ -49,7 +51,8 @@ async function fetchFilteredSessions(
   }
   if (duration_minutes) dbQuery = dbQuery.eq("duration_minutes", Number(duration_minutes));
   if (q) {
-    const keyword = `%${(q as string).slice(0, 100)}%`;
+    const raw = (q as string).slice(0, 100).replace(/[%_\\]/g, "\\$&");
+    const keyword = `%${raw}%`;
     dbQuery = dbQuery.or(`planned_title.ilike.${keyword},actual_title.ilike.${keyword},notes.ilike.${keyword}`);
   }
 
@@ -64,16 +67,14 @@ async function fetchFilteredSessions(
 
 // ─── Helpers ────────────────────────────────
 
-const TZ = "Asia/Taipei";
-
-function formatDateTZ(iso: string): string {
+function formatDateTZ(iso: string, tz: string): string {
   const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
 }
 
-function formatTimeTZ(iso: string): string {
+function formatTimeTZ(iso: string, tz: string): string {
   const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
+  return new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
 }
 
 function statusText(s: string): string {
@@ -164,7 +165,8 @@ function buildTitle(start: string, end: string): string {
 
 router.get("/sessions.csv", validateDateParams, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { sessions, error } = await fetchFilteredSessions(userId, req.query as Record<string, unknown>);
+  const tz = resolveTimezone((req.query.tz as string) || req.timezone);
+  const { sessions, error } = await fetchFilteredSessions(userId, req.query as Record<string, unknown>, tz);
 
   if (error) {
     res.status(400).json({ error: { code: "VALIDATION_ERROR", message: error } });
@@ -207,13 +209,12 @@ router.get("/sessions.csv", validateDateParams, asyncHandler(async (req: Request
   // Session rows
   for (const s of sessions) {
     const proj = s.projects as unknown as { code: string | null; name: string } | null;
-    // Always use planned end: started_at + duration_minutes
     const plannedEnd = new Date(new Date(s.started_at).getTime() + s.duration_minutes * 60_000).toISOString();
-    const endTime = formatTimeTZ(plannedEnd);
+    const endTime = formatTimeTZ(plannedEnd, tz);
 
     rows.push({
-      Date: formatDateTZ(s.started_at),
-      Start: formatTimeTZ(s.started_at),
+      Date: formatDateTZ(s.started_at, tz),
+      Start: formatTimeTZ(s.started_at, tz),
       End: endTime,
       Department: (s.departments as unknown as { name: string } | null)?.name ?? "",
       Project: proj?.code ? `${proj.code} — ${proj.name}` : proj?.name ?? "",
@@ -240,7 +241,8 @@ router.get("/sessions.csv", validateDateParams, asyncHandler(async (req: Request
 
 router.get("/summary.md", validateDateParams, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { sessions, error } = await fetchFilteredSessions(userId, req.query as Record<string, unknown>);
+  const tz = resolveTimezone((req.query.tz as string) || req.timezone);
+  const { sessions, error } = await fetchFilteredSessions(userId, req.query as Record<string, unknown>, tz);
 
   if (error) {
     res.status(400).json({ error: { code: "VALIDATION_ERROR", message: error } });
@@ -305,7 +307,7 @@ router.get("/summary.md", validateDateParams, asyncHandler(async (req: Request, 
       const notes = s.notes ? s.notes.replace(/\|/g, "\\|").replace(/\n/g, " ") : "";
 
       lines.push(
-        `| ${formatDateTZ(s.started_at)} | ${formatTimeTZ(s.started_at)} | ${deptName} | ${projName} | ${s.duration_minutes}m | ${displayTitle} | ${statusText(s.status)} | ${notes} |`
+        `| ${formatDateTZ(s.started_at, tz)} | ${formatTimeTZ(s.started_at, tz)} | ${deptName} | ${projName} | ${s.duration_minutes}m | ${displayTitle} | ${statusText(s.status)} | ${notes} |`
       );
     }
   }
@@ -324,7 +326,8 @@ router.get("/summary.md", validateDateParams, asyncHandler(async (req: Request, 
 
 router.get("/sessions.json", validateDateParams, asyncHandler(async (req: Request, res: Response) => {
   const userId = req.userId!;
-  const { sessions, error } = await fetchFilteredSessions(userId, req.query as Record<string, unknown>);
+  const tz = resolveTimezone((req.query.tz as string) || req.timezone);
+  const { sessions, error } = await fetchFilteredSessions(userId, req.query as Record<string, unknown>, tz);
 
   if (error) {
     res.status(400).json({ error: { code: "VALIDATION_ERROR", message: error } });
@@ -363,7 +366,7 @@ router.get("/sessions.json", validateDateParams, asyncHandler(async (req: Reques
       const proj = s.projects as unknown as { code: string | null; name: string } | null;
       const dept = s.departments as unknown as { name: string } | null;
       return {
-        date: formatDateTZ(s.started_at),
+        date: formatDateTZ(s.started_at, tz),
         started_at: s.started_at,
         ended_at: s.ended_at,
         canceled_at: s.canceled_at,

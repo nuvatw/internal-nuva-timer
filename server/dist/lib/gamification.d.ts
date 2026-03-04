@@ -13,4 +13,4 @@ export interface GamificationResult {
  * Award XP, tomatoes, and update streak after a session completion.
  * Returns null if progress couldn't be loaded (non-fatal).
  */
-export declare function awardSessionCompletion(userId: string, durationMinutes: number): Promise<GamificationResult | null>;
+export declare function awardSessionCompletion(userId: string, durationMinutes: number, timezone?: string): Promise<GamificationResult | null>;

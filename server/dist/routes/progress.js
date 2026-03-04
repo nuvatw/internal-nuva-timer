@@ -6,15 +6,13 @@ const supabase_js_1 = require("../supabase.js");
 const validate_js_1 = require("../middleware/validate.js");
 const errors_js_1 = require("../middleware/errors.js");
 const game_1 = require("@nuva/shared/game");
+const timezone_js_1 = require("../lib/timezone.js");
 const router = (0, express_1.Router)();
-// ─── Helpers ───────────────────────────────────
-function todayDateString() {
-    return new Date().toISOString().slice(0, 10);
-}
 /**
  * Fetch or create user_progress row. Resets daily counters if the date changed.
+ * Uses the user's timezone (IANA name) to determine "today".
  */
-async function getOrCreateProgress(userId) {
+async function getOrCreateProgress(userId, timezone = "Asia/Taipei") {
     const { data, error } = await supabase_js_1.supabase
         .from("user_progress")
         .select("*")
@@ -34,7 +32,7 @@ async function getOrCreateProgress(userId) {
     if (error)
         return null;
     const row = data;
-    const today = todayDateString();
+    const today = (0, timezone_js_1.todayInTimezone)(timezone);
     // Reset daily counters if date changed
     if (row.daily_date !== today) {
         const { data: updated, error: updateErr } = await supabase_js_1.supabase
@@ -59,7 +57,8 @@ async function getOrCreateProgress(userId) {
 // Returns user's gamification progress.
 router.get("/", (0, validate_js_1.asyncHandler)(async (req, res) => {
     const userId = req.userId;
-    const progress = await getOrCreateProgress(userId);
+    const timezone = (0, timezone_js_1.resolveTimezone)(req.timezone);
+    const progress = await getOrCreateProgress(userId, timezone);
     if (!progress) {
         res.status(500).json({ error: { code: "SERVER_ERROR", message: "Failed to load progress" } });
         return;
@@ -97,7 +96,8 @@ router.patch("/goal", (0, validate_js_1.asyncHandler)(async (req, res) => {
         return;
     }
     // Ensure row exists
-    await getOrCreateProgress(userId);
+    const timezone = (0, timezone_js_1.resolveTimezone)(req.timezone);
+    await getOrCreateProgress(userId, timezone);
     const { data, error } = await supabase_js_1.supabase
         .from("user_progress")
         .update({ tomato_goal, updated_at: new Date().toISOString() })

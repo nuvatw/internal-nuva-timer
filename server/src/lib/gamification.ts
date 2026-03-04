@@ -1,6 +1,7 @@
 import { supabase } from "../supabase.js";
 import { calculateXpGain, calculateNewTomatoes, levelFromXp, getLevelTitle } from "@nuva/shared/game";
 import { getOrCreateProgress } from "../routes/progress.js";
+import { todayInTimezone } from "./timezone.js";
 
 export interface GamificationResult {
   xp_gained: number;
@@ -18,8 +19,9 @@ export interface GamificationResult {
 export async function awardSessionCompletion(
   userId: string,
   durationMinutes: number,
+  timezone = "Asia/Taipei",
 ): Promise<GamificationResult | null> {
-  const progress = await getOrCreateProgress(userId);
+  const progress = await getOrCreateProgress(userId, timezone);
   if (!progress) return null;
 
   const dailyMinBefore = progress.daily_focus_minutes;
@@ -31,12 +33,15 @@ export async function awardSessionCompletion(
   const newLevel = Math.max(oldLevel, levelFromXp(newTotalXp));
 
   // ─── Streak logic ──────────────────────
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInTimezone(timezone);
   const lastDate = progress.last_session_date;
   let newStreak = progress.current_streak;
 
   if (lastDate !== today) {
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    // Compute yesterday in the user's timezone
+    const now = new Date();
+    const yesterdayDate = new Date(now.getTime() - 86400000);
+    const yesterday = new Intl.DateTimeFormat("en-CA", { timeZone: timezone }).format(yesterdayDate);
     newStreak = lastDate === yesterday ? progress.current_streak + 1 : 1;
   }
 

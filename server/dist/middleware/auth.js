@@ -16,6 +16,7 @@ async function authMiddleware(req, res, next) {
             return;
         }
         req.userId = data.user.id;
+        req.timezone = req.headers["x-timezone"];
         next();
     }
     catch {

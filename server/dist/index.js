@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 require("dotenv/config");
 const app_js_1 = __importDefault(require("./app.js"));
+const isProduction = process.env.NODE_ENV === "production";
 // ─── Environment Validation ──────────────────
 const required = ["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
 const missing = required.filter((key) => !process.env[key]);
@@ -16,6 +17,14 @@ if (missing.length > 0) {
 const PORT = process.env.PORT || 3001;
 const server = app_js_1.default.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    // ─── Keep-Alive Ping (prevents Render free-tier cold starts) ──
+    if (isProduction) {
+        const INTERVAL = 14 * 60 * 1000; // 14 minutes
+        setInterval(() => {
+            fetch(`http://localhost:${PORT}/api/health`).catch(() => { });
+        }, INTERVAL);
+        console.log("Keep-alive ping enabled (every 14 min)");
+    }
 });
 // ─── Graceful Shutdown ───────────────────────
 function shutdown(signal) {

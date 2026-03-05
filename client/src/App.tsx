@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -27,9 +27,25 @@ const LevelPage = lazy(() => import("./pages/LevelPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function LoadingScreen() {
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center" role="status" aria-label="Loading">
-      <div className="text-text-tertiary text-sm">Loading...</div>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-3" role="status" aria-label="Loading">
+      <div className="flex gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-text-tertiary animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-text-tertiary animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 rounded-full bg-text-tertiary animate-bounce [animation-delay:300ms]" />
+      </div>
+      {slow && (
+        <p className="text-text-tertiary text-xs animate-fade-in">
+          Server is waking up, this may take a moment...
+        </p>
+      )}
     </div>
   );
 }
